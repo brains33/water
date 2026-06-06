@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>PureFlow — Vendor</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --blue:#1A56DB; --cyan:#2563EB;
+    --dark:#F0F4F8; --dark2:#E8EEF7; --card:#FFFFFF;
+    --border:#C7D7ED; --text:#1A2340; --muted:#5B6B8C;
+    --success:#10B981; --warning:#D97706; --danger:#EF4444;
+  }
+  body{font-family:'DM Sans',sans-serif;background:var(--dark);color:var(--text);min-height:100vh}
+
+  .topbar{background:var(--card);border-bottom:1px solid var(--border);padding:13px 16px;
+    display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;
+    box-shadow:0 1px 4px rgba(0,0,0,0.07);}
+  .topbar-brand{font-family:'Syne',sans-serif;font-weight:800;font-size:17px;color:var(--blue);}
+  .topbar-user{display:flex;align-items:center;gap:10px;}
+  .topbar-user span{font-size:13px;color:var(--muted);font-weight:500;}
+  .logout-btn{background:transparent;border:1px solid var(--border);border-radius:7px;
+    padding:6px 12px;color:var(--muted);font-size:12px;cursor:pointer;font-weight:600;transition:all 0.2s;}
+  .logout-btn:hover{border-color:var(--danger);color:var(--danger);}
+
+  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--card);
+    border-top:1px solid var(--border);display:flex;z-index:50;box-shadow:0 -2px 8px rgba(0,0,0,0.07);}
+  .bn-item{flex:1;text-align:center;padding:11px 8px;cursor:pointer;color:var(--muted);
+    font-size:11px;font-weight:600;transition:all 0.2s;border-top:3px solid transparent;}
+  .bn-item .bn-icon{font-size:22px;display:block;margin-bottom:3px}
+  .bn-item.active{color:var(--blue);border-top-color:var(--blue);}
+
+  .content{padding:16px;padding-bottom:90px;max-width:600px;margin:0 auto}
+
+  .page{display:none}
+  .page.active{display:block;animation:fadeIn 0.3s ease}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+  .hero{background:linear-gradient(135deg,var(--blue),#0080FF);
+    border-radius:16px;padding:22px;margin-bottom:18px;color:#fff;box-shadow:0 4px 12px rgba(26,86,219,0.3);}
+  .hero h2{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-bottom:3px;}
+  .hero p{font-size:14px;opacity:0.9;}
+
+  .cards-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px}
+  .mini-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,0.05);}
+  .mini-card .mc-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;font-weight:600;}
+  .mini-card .mc-value{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--blue);}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,0.05);}
+  .card-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:14px;color:var(--text);}
+
+  .stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px}
+  .stat{background:var(--dark2);border-radius:10px;padding:12px;text-align:center;border:1px solid var(--border);}
+  .stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:4px;font-weight:600;}
+  .stat-value{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--text);}
+  .progress-wrap{background:var(--dark2);border-radius:8px;height:8px;overflow:hidden;margin:10px 0;border:1px solid var(--border);}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--blue),#0080FF);border-radius:8px;transition:width 0.5s}
+
+  label{display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.7px;margin-bottom:7px}
+  input,select{width:100%;background:var(--dark2);border:1.5px solid var(--border);border-radius:10px;
+    padding:12px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;
+    margin-bottom:14px;outline:none;transition:all 0.2s;}
+  input::placeholder{color:var(--muted);}
+  input:focus,select:focus{border-color:var(--blue);background:#fff;box-shadow:0 0 0 3px rgba(26,86,219,0.1);}
+  select option{background:var(--card);color:var(--text);}
+
+  .btn{width:100%;padding:13px;background:linear-gradient(135deg,var(--blue),var(--blue-dark,#0F47D4));
+    color:#fff;border:none;border-radius:10px;font-family:'Syne',sans-serif;
+    font-size:15px;font-weight:700;cursor:pointer;transition:all 0.2s;box-shadow:0 3px 10px rgba(26,86,219,0.3);}
+  .btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 5px 14px rgba(26,86,219,0.4);}
+  .btn:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+  .btn-outline{background:transparent;border:1.5px solid var(--border);box-shadow:none;color:var(--text);}
+  .btn-outline:hover:not(:disabled){border-color:var(--blue);color:var(--blue);background:#EBF2FF;}
+  .btn-success{background:linear-gradient(135deg,var(--success),#059669);color:#fff;box-shadow:0 3px 10px rgba(16,185,129,0.3);}
+  .btn-danger{background:linear-gradient(135deg,var(--danger),#DC2626);box-shadow:0 3px 10px rgba(239,68,68,0.3);}
+
+  .order-calc{background:var(--dark2);border-radius:12px;padding:14px;margin-bottom:14px;border:1px solid var(--border);}
+  .calc-row{display:flex;justify-content:space-between;padding:7px 0;
+    font-size:13px;border-bottom:1px solid var(--border);}
+  .calc-row:last-child{border-bottom:none;font-weight:700;font-size:15px;color:var(--blue);}
+  .calc-row span:first-child{color:var(--muted);}
+
+  .order-card{background:var(--card);border:1px solid var(--border);border-radius:12px;
+    padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.05);}
+  .order-card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+  .order-card-id{font-size:11px;color:var(--muted);}
+  .order-card-body{display:flex;gap:14px;flex-wrap:wrap;}
+  .oc-item{flex:1;min-width:80px;}
+  .oc-item .oc-label{font-size:11px;color:var(--muted);margin-bottom:3px;font-weight:600;text-transform:uppercase;}
+  .oc-item .oc-value{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--blue);}
+
+  .badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;}
+  .badge-paid{background:rgba(16,185,129,0.12);color:var(--success);}
+  .badge-unpaid{background:rgba(239,68,68,0.12);color:var(--danger);}
+  .badge-partial{background:rgba(217,119,6,0.12);color:var(--warning);}
+  .badge-pending{background:rgba(91,107,140,0.12);color:var(--muted);}
+  .badge-delivered{background:rgba(16,185,129,0.12);color:var(--success);}
+  .badge-approved{background:rgba(26,86,219,0.12);color:var(--blue);}
+  .badge-pending_confirmation{background:rgba(217,119,6,0.12);color:var(--warning);}
+  .badge-cash{background:rgba(16,185,129,0.12);color:var(--success);}
+  .badge-transfer{background:rgba(26,86,219,0.12);color:var(--blue);}
+
+  .sale-card{background:var(--dark2);border-radius:12px;padding:13px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border);}
+  .sc-left .sc-time{font-size:11px;color:var(--muted);}
+  .sc-left .sc-bags{font-weight:600;color:var(--text);}
+  .sc-right{text-align:right;}
+  .sc-right .sc-amount{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:var(--success);}
+
+  .alert{padding:12px 14px;border-radius:10px;font-size:13px;margin-bottom:14px;}
+  .alert-success{background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);color:var(--success);}
+  .alert-error{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:var(--danger);}
+
+  .empty{text-align:center;padding:40px 20px;color:var(--muted);}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.4);
+    border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .big-num{font-family:'Syne',sans-serif;font-size:34px;font-weight:800;text-align:center;margin:14px 0;}
+  .request-card{background:var(--primary-light,#EBF2FF);border:1px solid rgba(26,86,219,0.2);border-radius:12px;padding:14px;margin-bottom:14px;}
+
+  /* DRIVER SPECIFIC */
+  .page-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-bottom:6px;color:var(--text);}
+  .page-sub{color:var(--muted);font-size:13px;margin-bottom:18px;}
+  .delivery-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,0.05);}
+  .dc-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;}
+  .dc-vendor{font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:var(--text);}
+  .dc-phone{font-size:13px;color:var(--muted);margin-top:2px;}
+  .dc-bags{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:var(--blue);}
+  .dc-bags-label{font-size:11px;color:var(--muted);font-weight:600;}
+  .dc-row{display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
+  .dc-info{background:var(--dark2);border-radius:10px;padding:10px 14px;flex:1;min-width:100px;border:1px solid var(--border);}
+  .dc-info-label{font-size:11px;color:var(--muted);margin-bottom:3px;font-weight:600;text-transform:uppercase;}
+  .dc-info-value{font-size:14px;font-weight:600;color:var(--text);}
+  .call-btn{display:flex;align-items:center;gap:6px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);
+    color:var(--success);border-radius:8px;padding:9px 14px;font-size:13px;font-weight:600;
+    cursor:pointer;text-decoration:none;margin-bottom:14px;}
+  .deliver-form{background:var(--dark2);border-radius:12px;padding:14px;border:1px solid var(--border);}
+  .deliver-form label{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;
+    letter-spacing:0.6px;margin-bottom:7px;font-weight:600;}
+  .deliver-form input{width:100%;background:var(--card);border:1.5px solid var(--border);
+    border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;margin-bottom:12px;}
+  .deliver-form input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,86,219,0.1);}
+  .deliver-form select{width:100%;background:var(--card);border:1.5px solid var(--border);
+    border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;margin-bottom:12px;}
+  .deliver-form select:focus{border-color:var(--blue);}
+  .delivered-overlay{background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);
+    border-radius:10px;padding:14px;text-align:center;color:var(--success);font-weight:600;}
+  .empty-icon{font-size:48px;display:block;margin-bottom:12px;}
+  .eod-diff-section{display:none;background:var(--dark2);border-radius:10px;padding:14px;margin-top:12px;border:1px solid var(--border);}
+
+  @media (max-width: 480px) {
+    .content{padding:12px;padding-bottom:90px;}
+    .topbar{padding:11px 13px;}
+    .topbar-user span{display:none;}
+    .hero{padding:18px;margin-bottom:14px;}
+    .hero h2{font-size:20px;}
+    .card{padding:13px;}
+    input,select{font-size:16px;padding:11px 12px;}
+    .btn{font-size:14px;padding:12px;}
+    .stats-row{grid-template-columns:1fr 1fr 1fr;}
+    .cards-row{gap:8px;}
+    .mini-card{padding:12px;}
+    .mini-card .mc-value{font-size:16px;}
+  }
+</style>
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1A56DB">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="PureFlow">
+  <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152x152.png">
+  <link rel="apple-touch-icon" sizes="144x144" href="icons/icon-144x144.png">
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-brand">💧 PureFlow</div>
+  <div class="topbar-user">
+    <span id="vendor-greeting">Hello!</span>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
+</div>
+
+<div class="content">
+
+  <!-- HOME -->
+  <div class="page active" id="page-home">
+    <div class="hero">
+      <h2 id="home-name">Welcome!</h2>
+      <p>Your pure water account summary</p>
+    </div>
+    <div class="cards-row">
+      <div class="mini-card">
+        <div class="mc-label">Total Debt</div>
+        <div class="mc-value" id="home-debt" style="color:var(--warning)">₦0</div>
+      </div>
+      <div class="mini-card">
+        <div class="mc-label">Credit Limit</div>
+        <div class="mc-value" id="home-credit" style="color:var(--cyan)">₦0</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Recent Orders</div>
+      <div id="home-orders"><div class="empty">⏳ Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- ORDER -->
+  <div class="page" id="page-order">
+    <div class="card">
+      <div class="card-title">🛒 Place Order</div>
+
+      <div id="order-alert"></div>
+      <div id="no-prod-warning" style="display:none" class="alert alert-error">⚠️ No production logged for today. Please check back later.</div>
+
+      <label>Number of Bags</label>
+      <input type="number" id="o-bags" placeholder="e.g. 50" min="1" oninput="calcTotal()" />
+
+      <label>Payment Method</label>
+      <select id="o-method" onchange="handleMethodChange()">
+        <option value="cash">💵 Cash (Pay at pickup)</option>
+        <option value="transfer">🏦 Bank Transfer</option>
+        <option value="credit">📋 Credit / Pay Later</option>
+      </select>
+
+      <div id="paid-section">
+        <label>Amount Paying Now (₦)</label>
+        <input type="number" id="o-paid" placeholder="0" value="0" oninput="calcTotal()" />
+      </div>
+
+      <div class="order-calc" id="order-calc">
+        <div class="calc-row"><span>Price per bag</span><span id="calc-price">Loading...</span></div>
+        <div class="calc-row"><span>Bags ordered</span><span id="calc-bags">0</span></div>
+        <div class="calc-row"><span>Total Amount</span><span id="calc-total">₦0</span></div>
+        <div class="calc-row"><span>Paying Now</span><span id="calc-paid">₦0</span></div>
+        <div class="calc-row"><span>Outstanding</span><span id="calc-outstanding" style="color:var(--warning)">₦0</span></div>
+      </div>
+
+      <button class="btn" id="order-btn" onclick="placeOrder()">📦 Place Order</button>
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="page" id="page-history">
+    <div class="card-title" style="margin-bottom:16px">📜 Order History</div>
+    <div id="history-list"><div class="empty">⏳ Loading...</div></div>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <div class="bn-item active" onclick="showPage('home', this)">
+    <span class="bn-icon">🏠</span>Home
+  </div>
+  <div class="bn-item" onclick="showPage('order', this)">
+    <span class="bn-icon">🛒</span>Order
+  </div>
+  <div class="bn-item" onclick="showPage('history', this)">
+    <span class="bn-icon">📜</span>History
+  </div>
+</nav>
+
+<script>
+// Queue proxy — buffers calls made before the module's showPage is ready
+(function(){
+  let _q = []
+  let _ready = false
+  window.showPage = function(name, el) {
+    if (_ready) return window._realShowPage(name, el)
+    _q.push([name, el])
+  }
+  window._registerShowPage = function(fn) {
+    window._realShowPage = fn
+    _ready = true
+    _q.forEach(([n, e]) => fn(n, e))
+    _q = []
+  }
+})()
+</script>
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+const sb = createClient(
+  'https://jiwbifgdzxbtludusctf.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imppd2JpZmdkenhidGx1ZHVzY3RmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2ODUyNDMsImV4cCI6MjA5NjI2MTI0M30.iIlsTnHgZLGq2-EvbJAcTl6WcjmqM3gi5cjnNykjOYs'
+)
+
+const _vRaw = localStorage.getItem('pf_user')
+let user = null
+try { user = JSON.parse(_vRaw) } catch(e) {}
+if (!user || user.role !== 'vendor') window.location.href = 'index.html'
+if (user._expires && Date.now() > user._expires) { localStorage.removeItem('pf_user'); window.location.href = 'index.html' }
+function touchSession() { if(user){ user._expires = Date.now() + 8*60*60*1000; localStorage.setItem('pf_user', JSON.stringify(user)) } }
+document.addEventListener('click', (e) => { if (!e.target.closest('.logout-btn')) touchSession() })
+
+document.getElementById('vendor-greeting').textContent = 'Hello, ' + user.full_name.split(' ')[0]
+document.getElementById('home-name').textContent = 'Welcome, ' + user.full_name.split(' ')[0] + '! 👋'
+
+let todayProd = null
+
+const _showPageImpl = (name, el) => {
+  const pageEl = document.getElementById('page-' + name)
+  if (!pageEl) return
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+  document.querySelectorAll('.bn-item').forEach(b => b.classList.remove('active'))
+  pageEl.classList.add('active')
+  // Highlight nav tab — by passed element or by matching onclick attr
+  if (el) { el.classList.add('active') }
+  else {
+    document.querySelectorAll('.bn-item').forEach(b => {
+      if (b.getAttribute('onclick')?.includes("'" + name + "'")) b.classList.add('active')
+    })
+  }
+  location.hash = name
+  if (name === 'home') loadHome()
+  if (name === 'order') loadOrderPage()
+  if (name === 'history') loadHistory()
+}
+window._registerShowPage(_showPageImpl)
+
+window.logout = () => { localStorage.removeItem('pf_user'); window.location.href = 'index.html' }
+
+async function loadHome() {
+  // Refresh vendor data
+  const { data: v } = await sb.from('users').select('*').eq('id', user.id).single()
+  if (v) {
+    document.getElementById('home-debt').textContent = '₦' + (v.total_debt||0).toLocaleString()
+    document.getElementById('home-credit').textContent = '₦' + (v.credit_limit||0).toLocaleString()
+  }
+  const { data: orders } = await sb.from('orders').select('*, delivery_otp').eq('vendor_id', user.id).order('created_at',{ascending:false}).limit(5)
+  if (!orders?.length) { document.getElementById('home-orders').innerHTML = '<div class="empty">📭 No orders yet</div>'; return }
+  document.getElementById('home-orders').innerHTML = orders.map(o => orderCard(o)).join('')
+}
+
+async function loadOrderPage() {
+  const today = new Date().toISOString().split('T')[0]
+  const { data: prod } = await sb.from('daily_production').select('*').eq('date', today).single()
+  todayProd = prod
+  if (!prod) {
+    document.getElementById('no-prod-warning').style.display = 'block'
+    document.getElementById('order-btn').disabled = true
+  } else {
+    document.getElementById('no-prod-warning').style.display = 'none'
+    document.getElementById('order-btn').disabled = false
+    document.getElementById('calc-price').textContent = '₦' + prod.price_per_bag + '/bag'
+  }
+}
+
+async function loadHistory() {
+  const { data } = await sb.from('orders').select('*, delivery_otp').eq('vendor_id', user.id).order('created_at',{ascending:false})
+  if (!data?.length) { document.getElementById('history-list').innerHTML = '<div class="empty">📭 No orders yet</div>'; return }
+  document.getElementById('history-list').innerHTML = data.map(o => orderCard(o, true)).join('')
+}
+
+function orderCard(o, full = false) {
+  const outstanding = o.total_amount - o.amount_paid
+  const otpBlock = (o.order_status === 'approved' && o.delivery_otp)
+    ? `<div style="background:linear-gradient(135deg,rgba(0,87,255,0.2),rgba(0,212,255,0.1));border:1px solid rgba(0,212,255,0.3);border-radius:12px;padding:14px;margin:12px 0;text-align:center;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">🔐 DELIVERY CODE — Show this to your driver</div>
+        <div style="font-family:Syne,sans-serif;font-size:40px;font-weight:800;letter-spacing:12px;color:var(--cyan)">${o.delivery_otp}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;">Give this code to driver when bags arrive</div>
+      </div>`
+    : ''
+
+  const payBtn = (outstanding > 0 && o.payment_status !== 'pending_confirmation')
+    ? `<button onclick="payOutstanding('${o.id}', ${outstanding}, ${o.total_amount})"
+        style="display:flex;align-items:center;gap:6px;background:rgba(0,229,160,0.1);border:1px solid rgba(0,229,160,0.3);color:var(--success);border-radius:8px;padding:9px 14px;font-size:13px;font-weight:600;cursor:pointer;width:100%;margin-top:10px;justify-content:center;">
+        💳 Pay Outstanding — ₦${outstanding.toLocaleString()}
+      </button>`
+    : ''
+
+  return `<div class="order-card">
+    <div class="order-card-header">
+      <div>
+        <div style="font-weight:600;margin-bottom:3px">${o.bags_ordered} Bags</div>
+        <div class="order-card-id">Order #${o.id.slice(0,8).toUpperCase()}</div>
+      </div>
+      <div style="text-align:right">
+        <div><span class="badge badge-${o.payment_status}">${o.payment_status}</span></div>
+        <div style="margin-top:4px"><span class="badge badge-${o.order_status}">${o.order_status}</span></div>
+      </div>
+    </div>
+    ${otpBlock}
+    <div class="order-card-body">
+      <div class="oc-item"><div class="oc-label">Total</div><div class="oc-value">₦${o.total_amount.toLocaleString()}</div></div>
+      <div class="oc-item"><div class="oc-label">Paid</div><div class="oc-value" style="color:var(--success)">₦${o.amount_paid.toLocaleString()}</div></div>
+      ${outstanding>0?`<div class="oc-item"><div class="oc-label">Owes</div><div class="oc-value" style="color:var(--warning)">₦${outstanding.toLocaleString()}</div></div>`:''}
+    </div>
+    ${payBtn}
+    ${o.order_status === 'delivered' && o.burst_sachets > 0 ? `
+      <div style="background:rgba(255,183,0,0.08);border:1px solid rgba(255,183,0,0.2);border-radius:10px;padding:12px;margin-top:10px;">
+        <div style="font-size:11px;font-weight:600;color:var(--warning);margin-bottom:6px;">⚠️ BURST REPORT</div>
+        <div style="font-size:13px;">💥 ${o.burst_sachets} sachets burst</div>
+        <div style="font-size:13px;">✅ Replaced by driver: ${o.burst_replaced || 0} sachets</div>
+        <div style="font-size:13px;color:${o.burst_not_replaced > 0 ? 'var(--warning)' : 'var(--success)'}">
+          ❌ Not replaced: ${o.burst_not_replaced || 0} sachets
+        </div>
+      </div>` : ''}
+    <div style="margin-top:10px;font-size:11px;color:var(--muted)">${new Date(o.created_at).toLocaleDateString('en-NG',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+  </div>`
+}
+
+window.payOutstanding = async (orderId, outstanding, total) => {
+  // Show payment method picker
+  const method = await new Promise(resolve => {
+    const overlay = document.createElement('div')
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px'
+    overlay.innerHTML = `<div style="background:#111C2D;border:1px solid rgba(0,87,255,0.2);border-radius:16px;padding:24px;max-width:360px;width:100%">
+      <h3 style="font-family:Syne,sans-serif;margin-bottom:8px">💳 Pay Outstanding Balance</h3>
+      <p style="color:#6B7FA3;font-size:14px;margin-bottom:16px">Amount due: <strong style="color:#FFB700">₦${outstanding.toLocaleString()}</strong></p>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+        <button onclick="this.closest('[data-modal]').__resolve('cash')" style="padding:12px;background:rgba(0,229,160,0.1);border:1px solid rgba(0,229,160,0.3);border-radius:10px;color:#00E5A0;cursor:pointer;font-size:14px;font-weight:600">💵 Cash Payment</button>
+        <button onclick="this.closest('[data-modal]').__resolve('transfer')" style="padding:12px;background:rgba(0,87,255,0.1);border:1px solid rgba(0,87,255,0.3);border-radius:10px;color:#00D4FF;cursor:pointer;font-size:14px;font-weight:600">🏦 Bank Transfer</button>
+      </div>
+      <button onclick="this.closest('[data-modal]').__resolve(null)" style="width:100%;padding:10px;background:transparent;border:1px solid rgba(0,87,255,0.2);border-radius:8px;color:#6B7FA3;cursor:pointer">Cancel</button>
+    </div>`
+    overlay.setAttribute('data-modal', '1')
+    overlay.__resolve = (v) => { document.body.removeChild(overlay); resolve(v) }
+    document.body.appendChild(overlay)
+  })
+
+  if (!method) return
+
+  const newPaid = total // full payment
+  const payStatus = method === 'transfer' ? 'pending_confirmation' : 'paid'
+
+  const { data: vend } = await sb.from('users').select('total_debt').eq('id', user.id).single()
+  await sb.from('orders').update({ amount_paid: newPaid, payment_status: payStatus, payment_method: method }).eq('id', orderId)
+
+  // Reduce vendor debt
+  if (method === 'cash') {
+    const newDebt = Math.max(0, (vend?.total_debt||0) - outstanding)
+    await sb.from('users').update({ total_debt: newDebt }).eq('id', user.id)
+  }
+
+  const msg = method === 'transfer'
+    ? '🏦 Transfer recorded! Admin will confirm receipt.'
+    : '✅ Payment recorded! Balance cleared.'
+  showAlert('order-alert', 'success', msg)
+  loadHome()
+  loadHistory()
+}
+
+window.handleMethodChange = () => {
+  const method = document.getElementById('o-method').value
+  document.getElementById('paid-section').style.display = method === 'credit' ? 'none' : 'block'
+  if (method === 'credit') document.getElementById('o-paid').value = '0'
+  calcTotal()
+}
+
+window.calcTotal = () => {
+  const bags = parseInt(document.getElementById('o-bags').value) || 0
+  const paid = parseFloat(document.getElementById('o-paid').value) || 0
+  const price = todayProd?.price_per_bag || 0
+  const total = bags * price
+  const outstanding = Math.max(0, total - paid)
+  document.getElementById('calc-bags').textContent = bags
+  document.getElementById('calc-total').textContent = '₦' + total.toLocaleString()
+  document.getElementById('calc-paid').textContent = '₦' + paid.toLocaleString()
+  document.getElementById('calc-outstanding').textContent = '₦' + outstanding.toLocaleString()
+}
+
+window.placeOrder = async () => {
+  if (!todayProd) { alert('No production available today'); return }
+
+  const bags = parseInt(document.getElementById('o-bags').value)
+  const method = document.getElementById('o-method').value
+  const paid = method === 'credit' ? 0 : parseFloat(document.getElementById('o-paid').value) || 0
+
+  if (!bags || bags < 1) { showAlert('order-alert','error','Enter number of bags'); return }
+
+  // Check credit
+  const { data: vend } = await sb.from('users').select('*').eq('id', user.id).single()
+  if (vend.is_blocked) { showAlert('order-alert','error','Your account is blocked. Contact the factory admin.'); return }
+
+  const total = bags * todayProd.price_per_bag
+  const outstanding = total - paid
+
+  if (method === 'credit' || outstanding > 0) {
+    const newDebt = (vend.total_debt || 0) + outstanding
+    if (newDebt > (vend.credit_limit || 0)) {
+      showAlert('order-alert', 'error', `Credit limit exceeded! Your limit is ₦${(vend.credit_limit||0).toLocaleString()} and your current debt is ₦${(vend.total_debt||0).toLocaleString()}`)
+      return
+    }
+  }
+
+  if (todayProd.available_bags < bags) {
+    showAlert('order-alert','error',`Only ${todayProd.available_bags} bags available today`); return
+  }
+
+  let payStatus = paid >= total ? 'paid' : paid > 0 ? 'partial' : 'unpaid'
+  if (method === 'transfer') payStatus = 'pending_confirmation'
+
+  const btn = document.getElementById('order-btn')
+  btn.innerHTML = '<span class="spinner"></span>Placing order...'
+  btn.disabled = true
+
+  const { error } = await sb.from('orders').insert({
+    vendor_id: user.id, production_id: todayProd.id,
+    bags_ordered: bags, price_per_bag: todayProd.price_per_bag,
+    total_amount: total, amount_paid: paid,
+    payment_method: method, payment_status: payStatus,
+    order_status: 'pending'
+  })
+
+  // Update vendor debt
+  if (!error && outstanding > 0) {
+    await sb.from('users').update({ total_debt: (vend.total_debt||0) + outstanding }).eq('id', user.id)
+  }
+
+  btn.innerHTML = '📦 Place Order'
+  btn.disabled = false
+
+  if (error) { showAlert('order-alert','error','Failed: '+error.message); return }
+
+  showAlert('order-alert','success',`✅ Order placed! ${bags} bags for ₦${total.toLocaleString()}. Admin will approve shortly.`)
+  document.getElementById('o-bags').value = ''
+  document.getElementById('o-paid').value = '0'
+  calcTotal()
+}
+
+function showAlert(id, type, msg) {
+  document.getElementById(id).innerHTML = `<div class="alert alert-${type==='success'?'success':'error'}">${msg}</div>`
+  setTimeout(() => document.getElementById(id).innerHTML = '', 6000)
+}
+
+// INIT — restore last page from hash on refresh
+const _vendorPages = ['home','order','history']
+const _initVendorPage = _vendorPages.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'home'
+_showPageImpl(_initVendorPage)
+
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => console.log('[PureFlow] SW registered:', reg.scope))
+        .catch(err => console.warn('[PureFlow] SW registration failed:', err))
+    })
+  }
+</script>
+</body>
+</html>

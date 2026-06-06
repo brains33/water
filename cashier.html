@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>PureFlow — Cashier</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --blue:#1A56DB; --cyan:#2563EB;
+    --dark:#F0F4F8; --dark2:#E8EEF7; --card:#FFFFFF;
+    --border:#C7D7ED; --text:#1A2340; --muted:#5B6B8C;
+    --success:#10B981; --warning:#D97706; --danger:#EF4444;
+  }
+  body{font-family:'DM Sans',sans-serif;background:var(--dark);color:var(--text);min-height:100vh}
+
+  .topbar{background:var(--card);border-bottom:1px solid var(--border);padding:13px 16px;
+    display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;
+    box-shadow:0 1px 4px rgba(0,0,0,0.07);}
+  .topbar-brand{font-family:'Syne',sans-serif;font-weight:800;font-size:17px;color:var(--blue);}
+  .topbar-user{display:flex;align-items:center;gap:10px;}
+  .topbar-user span{font-size:13px;color:var(--muted);font-weight:500;}
+  .logout-btn{background:transparent;border:1px solid var(--border);border-radius:7px;
+    padding:6px 12px;color:var(--muted);font-size:12px;cursor:pointer;font-weight:600;transition:all 0.2s;}
+  .logout-btn:hover{border-color:var(--danger);color:var(--danger);}
+
+  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--card);
+    border-top:1px solid var(--border);display:flex;z-index:50;box-shadow:0 -2px 8px rgba(0,0,0,0.07);}
+  .bn-item{flex:1;text-align:center;padding:11px 8px;cursor:pointer;color:var(--muted);
+    font-size:11px;font-weight:600;transition:all 0.2s;border-top:3px solid transparent;}
+  .bn-item .bn-icon{font-size:22px;display:block;margin-bottom:3px}
+  .bn-item.active{color:var(--blue);border-top-color:var(--blue);}
+
+  .content{padding:16px;padding-bottom:90px;max-width:600px;margin:0 auto}
+
+  .page{display:none}
+  .page.active{display:block;animation:fadeIn 0.3s ease}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+  .hero{background:linear-gradient(135deg,var(--blue),#0080FF);
+    border-radius:16px;padding:22px;margin-bottom:18px;color:#fff;box-shadow:0 4px 12px rgba(26,86,219,0.3);}
+  .hero h2{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-bottom:3px;}
+  .hero p{font-size:14px;opacity:0.9;}
+
+  .cards-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px}
+  .mini-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,0.05);}
+  .mini-card .mc-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;font-weight:600;}
+  .mini-card .mc-value{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--blue);}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,0.05);}
+  .card-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:14px;color:var(--text);}
+
+  .stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px}
+  .stat{background:var(--dark2);border-radius:10px;padding:12px;text-align:center;border:1px solid var(--border);}
+  .stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:4px;font-weight:600;}
+  .stat-value{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--text);}
+  .progress-wrap{background:var(--dark2);border-radius:8px;height:8px;overflow:hidden;margin:10px 0;border:1px solid var(--border);}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--blue),#0080FF);border-radius:8px;transition:width 0.5s}
+
+  label{display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.7px;margin-bottom:7px}
+  input,select{width:100%;background:var(--dark2);border:1.5px solid var(--border);border-radius:10px;
+    padding:12px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;
+    margin-bottom:14px;outline:none;transition:all 0.2s;}
+  input::placeholder{color:var(--muted);}
+  input:focus,select:focus{border-color:var(--blue);background:#fff;box-shadow:0 0 0 3px rgba(26,86,219,0.1);}
+  select option{background:var(--card);color:var(--text);}
+
+  .btn{width:100%;padding:13px;background:linear-gradient(135deg,var(--blue),var(--blue-dark,#0F47D4));
+    color:#fff;border:none;border-radius:10px;font-family:'Syne',sans-serif;
+    font-size:15px;font-weight:700;cursor:pointer;transition:all 0.2s;box-shadow:0 3px 10px rgba(26,86,219,0.3);}
+  .btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 5px 14px rgba(26,86,219,0.4);}
+  .btn:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+  .btn-outline{background:transparent;border:1.5px solid var(--border);box-shadow:none;color:var(--text);}
+  .btn-outline:hover:not(:disabled){border-color:var(--blue);color:var(--blue);background:#EBF2FF;}
+  .btn-success{background:linear-gradient(135deg,var(--success),#059669);color:#fff;box-shadow:0 3px 10px rgba(16,185,129,0.3);}
+  .btn-danger{background:linear-gradient(135deg,var(--danger),#DC2626);box-shadow:0 3px 10px rgba(239,68,68,0.3);}
+
+  .order-calc{background:var(--dark2);border-radius:12px;padding:14px;margin-bottom:14px;border:1px solid var(--border);}
+  .calc-row{display:flex;justify-content:space-between;padding:7px 0;
+    font-size:13px;border-bottom:1px solid var(--border);}
+  .calc-row:last-child{border-bottom:none;font-weight:700;font-size:15px;color:var(--blue);}
+  .calc-row span:first-child{color:var(--muted);}
+
+  .order-card{background:var(--card);border:1px solid var(--border);border-radius:12px;
+    padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.05);}
+  .order-card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+  .order-card-id{font-size:11px;color:var(--muted);}
+  .order-card-body{display:flex;gap:14px;flex-wrap:wrap;}
+  .oc-item{flex:1;min-width:80px;}
+  .oc-item .oc-label{font-size:11px;color:var(--muted);margin-bottom:3px;font-weight:600;text-transform:uppercase;}
+  .oc-item .oc-value{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--blue);}
+
+  .badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;}
+  .badge-paid{background:rgba(16,185,129,0.12);color:var(--success);}
+  .badge-unpaid{background:rgba(239,68,68,0.12);color:var(--danger);}
+  .badge-partial{background:rgba(217,119,6,0.12);color:var(--warning);}
+  .badge-pending{background:rgba(91,107,140,0.12);color:var(--muted);}
+  .badge-delivered{background:rgba(16,185,129,0.12);color:var(--success);}
+  .badge-approved{background:rgba(26,86,219,0.12);color:var(--blue);}
+  .badge-pending_confirmation{background:rgba(217,119,6,0.12);color:var(--warning);}
+  .badge-cash{background:rgba(16,185,129,0.12);color:var(--success);}
+  .badge-transfer{background:rgba(26,86,219,0.12);color:var(--blue);}
+
+  .sale-card{background:var(--dark2);border-radius:12px;padding:13px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border);}
+  .sc-left .sc-time{font-size:11px;color:var(--muted);}
+  .sc-left .sc-bags{font-weight:600;color:var(--text);}
+  .sc-right{text-align:right;}
+  .sc-right .sc-amount{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:var(--success);}
+
+  .alert{padding:12px 14px;border-radius:10px;font-size:13px;margin-bottom:14px;}
+  .alert-success{background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);color:var(--success);}
+  .alert-error{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:var(--danger);}
+
+  .empty{text-align:center;padding:40px 20px;color:var(--muted);}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.4);
+    border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .big-num{font-family:'Syne',sans-serif;font-size:34px;font-weight:800;text-align:center;margin:14px 0;}
+  .request-card{background:var(--primary-light,#EBF2FF);border:1px solid rgba(26,86,219,0.2);border-radius:12px;padding:14px;margin-bottom:14px;}
+
+  /* DRIVER SPECIFIC */
+  .page-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-bottom:6px;color:var(--text);}
+  .page-sub{color:var(--muted);font-size:13px;margin-bottom:18px;}
+  .delivery-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,0.05);}
+  .dc-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;}
+  .dc-vendor{font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:var(--text);}
+  .dc-phone{font-size:13px;color:var(--muted);margin-top:2px;}
+  .dc-bags{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:var(--blue);}
+  .dc-bags-label{font-size:11px;color:var(--muted);font-weight:600;}
+  .dc-row{display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
+  .dc-info{background:var(--dark2);border-radius:10px;padding:10px 14px;flex:1;min-width:100px;border:1px solid var(--border);}
+  .dc-info-label{font-size:11px;color:var(--muted);margin-bottom:3px;font-weight:600;text-transform:uppercase;}
+  .dc-info-value{font-size:14px;font-weight:600;color:var(--text);}
+  .call-btn{display:flex;align-items:center;gap:6px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);
+    color:var(--success);border-radius:8px;padding:9px 14px;font-size:13px;font-weight:600;
+    cursor:pointer;text-decoration:none;margin-bottom:14px;}
+  .deliver-form{background:var(--dark2);border-radius:12px;padding:14px;border:1px solid var(--border);}
+  .deliver-form label{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;
+    letter-spacing:0.6px;margin-bottom:7px;font-weight:600;}
+  .deliver-form input{width:100%;background:var(--card);border:1.5px solid var(--border);
+    border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;margin-bottom:12px;}
+  .deliver-form input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,86,219,0.1);}
+  .deliver-form select{width:100%;background:var(--card);border:1.5px solid var(--border);
+    border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;margin-bottom:12px;}
+  .deliver-form select:focus{border-color:var(--blue);}
+  .delivered-overlay{background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);
+    border-radius:10px;padding:14px;text-align:center;color:var(--success);font-weight:600;}
+  .empty-icon{font-size:48px;display:block;margin-bottom:12px;}
+  .eod-diff-section{display:none;background:var(--dark2);border-radius:10px;padding:14px;margin-top:12px;border:1px solid var(--border);}
+
+  @media (max-width: 480px) {
+    .content{padding:12px;padding-bottom:90px;}
+    .topbar{padding:11px 13px;}
+    .topbar-user span{display:none;}
+    .hero{padding:18px;margin-bottom:14px;}
+    .hero h2{font-size:20px;}
+    .card{padding:13px;}
+    input,select{font-size:16px;padding:11px 12px;}
+    .btn{font-size:14px;padding:12px;}
+    .stats-row{grid-template-columns:1fr 1fr 1fr;}
+    .cards-row{gap:8px;}
+    .mini-card{padding:12px;}
+    .mini-card .mc-value{font-size:16px;}
+  }
+</style>
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1A56DB">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="PureFlow">
+  <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152x152.png">
+  <link rel="apple-touch-icon" sizes="144x144" href="icons/icon-144x144.png">
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-brand">💰 Cashier — PureFlow</div>
+  <button class="logout-btn" onclick="logout()">Logout</button>
+</div>
+
+<div class="content">
+
+  <!-- HOME / FLOAT STATUS -->
+  <div class="page active" id="page-home">
+    <div class="card-title" style="margin-bottom:16px">Today's Float 📦</div>
+    <div id="home-alert"></div>
+
+    <div id="no-float-state">
+      <div class="card">
+        <div class="card-title">No Float Assigned Yet</div>
+        <p style="color:var(--muted);font-size:14px;margin-bottom:16px">No approved float for today. Go to "Request" tab to request bags. Once admin approves, your float will appear here.</p>
+        <button class="btn btn-outline" onclick="showPage('request', document.querySelectorAll('.bn-item')[2])">📋 Request Float</button>
+      </div>
+    </div>
+
+    <div id="float-state" style="display:none">
+      <div class="stats-row">
+        <div class="stat">
+          <div class="stat-label">Allocated</div>
+          <div class="stat-value" id="float-allocated">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Sold</div>
+          <div class="stat-value" id="float-sold" style="color:var(--success)">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Remaining</div>
+          <div class="stat-value" id="float-remaining" style="color:var(--cyan)">0</div>
+        </div>
+      </div>
+      <div class="progress-wrap"><div class="progress-fill" id="float-progress" style="width:0%"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:20px">
+        <span>Bags sold</span>
+        <span id="float-pct">0%</span>
+      </div>
+
+      <div class="card">
+        <div class="stat-label" style="margin-bottom:6px">Cash Collected Today</div>
+        <div class="big-num" id="float-cash" style="color:var(--success)">₦0</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Recent Sales</div>
+        <div id="recent-sales"><div class="empty">No sales yet today</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SELL PAGE -->
+  <div class="page" id="page-sell">
+    <div class="card">
+      <div class="card-title">💵 Record a Sale</div>
+      <div id="sell-alert"></div>
+      <div id="sell-no-float" class="alert alert-error" style="display:none">⚠️ No float assigned. Request bags from admin first.</div>
+
+      <label>Number of Bags</label>
+      <input type="number" id="sell-bags" placeholder="e.g. 10" min="1" oninput="calcSale()" />
+
+      <label>Payment Method</label>
+      <select id="sell-method">
+        <option value="cash">💵 Cash</option>
+        <option value="transfer">🏦 Bank Transfer</option>
+      </select>
+
+      <div style="background:var(--dark2);border-radius:10px;padding:14px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span style="color:var(--muted);font-size:13px">Price per bag</span>
+          <span id="sale-price" style="font-size:13px">Loading...</span>
+        </div>
+        <div style="display:flex;justify-content:space-between">
+          <span style="color:var(--muted);font-size:13px">Total</span>
+          <span id="sale-total" style="font-family:Syne,sans-serif;font-size:18px;font-weight:800;color:var(--success)">₦0</span>
+        </div>
+      </div>
+
+      <button class="btn" id="sell-btn" onclick="recordSale()">✅ Record Sale</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Today's Sales Log</div>
+      <div id="sales-log"><div class="empty">No sales yet</div></div>
+    </div>
+  </div>
+
+  <!-- REQUEST FLOAT -->
+  <div class="page" id="page-request">
+    <div class="card">
+      <div class="card-title">📋 Request Float from Admin</div>
+      <div id="req-alert"></div>
+      <p style="color:var(--muted);font-size:14px;margin-bottom:20px">Admin will see your request and approve bags from today's production batch.</p>
+      <label>Number of Bags to Request</label>
+      <input type="number" id="req-bags" placeholder="e.g. 200" min="1" />
+      <button class="btn" onclick="requestFloat()">📤 Send Request to Admin</button>
+    </div>
+  </div>
+
+  <!-- END OF DAY RECONCILIATION -->
+  <div class="page" id="page-eod">
+    <div class="card">
+      <div class="card-title">🔒 End-of-Day Reconciliation</div>
+      <div id="eod-alert"></div>
+      <div id="eod-summary" style="background:var(--dark2);border-radius:12px;padding:16px;margin-bottom:16px;">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">System expects from your float today:</div>
+        <div id="eod-system-info"><div class="empty">⏳ Loading...</div></div>
+      </div>
+      <label>Actual Cash in Hand (₦)</label>
+      <input type="number" id="eod-actual-cash" placeholder="Count your physical cash and enter here" min="0" oninput="calcEodDiff()" />
+      <label>Unsold Bags Returning to Stock</label>
+      <input type="number" id="eod-unsold-bags" placeholder="Bags not sold" min="0" oninput="calcEodDiff()" />
+      <div id="eod-diff-display" style="background:var(--dark2);border-radius:10px;padding:14px;margin-bottom:16px;display:none">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+          <span style="color:var(--muted);font-size:13px">System expects</span>
+          <span id="eod-expected" style="font-weight:600">₦0</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+          <span style="color:var(--muted);font-size:13px">You reported</span>
+          <span id="eod-reported" style="font-weight:600">₦0</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;border-top:1px solid rgba(0,87,255,0.15);padding-top:8px;">
+          <span style="color:var(--muted);font-size:13px">Discrepancy</span>
+          <span id="eod-discrepancy" style="font-family:Syne,sans-serif;font-size:18px;font-weight:800">₦0</span>
+        </div>
+      </div>
+      <label>Notes / Explanation (if any discrepancy)</label>
+      <input type="text" id="eod-notes" placeholder="Optional — explain any difference" />
+      <button class="btn" onclick="submitEod()" id="eod-btn">🔒 Submit End-of-Day Report</button>
+    </div>
+  </div>
+
+</div>
+
+<nav class="bottom-nav">
+  <div class="bn-item active" onclick="showPage('home', this)"><span class="bn-icon">🏠</span>Home</div>
+  <div class="bn-item" onclick="showPage('sell', this)"><span class="bn-icon">💵</span>Sell</div>
+  <div class="bn-item" onclick="showPage('request', this)"><span class="bn-icon">📋</span>Request</div>
+  <div class="bn-item" onclick="showPage('eod', this)"><span class="bn-icon">🔒</span>Close Day</div>
+</nav>
+
+<script>window.showPage=window.showPage||function(){};window.showTab=window.showTab||function(){};</script>
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+const sb = createClient(
+  'https://jiwbifgdzxbtludusctf.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imppd2JpZmdkenhidGx1ZHVzY3RmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2ODUyNDMsImV4cCI6MjA5NjI2MTI0M30.iIlsTnHgZLGq2-EvbJAcTl6WcjmqM3gi5cjnNykjOYs'
+)
+
+const _cRaw = localStorage.getItem('pf_user')
+let user = null
+try { user = JSON.parse(_cRaw) } catch(e) {}
+if (!user || user.role !== 'cashier') window.location.href = 'index.html'
+if (user._expires && Date.now() > user._expires) { localStorage.removeItem('pf_user'); window.location.href = 'index.html' }
+function touchSession() { if(user){ user._expires = Date.now() + 8*60*60*1000; localStorage.setItem('pf_user', JSON.stringify(user)) } }
+document.addEventListener('click', (e) => { if (!e.target.closest('.logout-btn')) touchSession() })
+
+let todayFloat = null
+let todayProd = null
+let todaySales = []
+
+window.showPage = (name, el) => {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+  document.querySelectorAll('.bn-item').forEach(b => b.classList.remove('active'))
+  document.getElementById('page-'+name).classList.add('active')
+  el?.classList.add('active')
+  if (name==='home') loadHome()
+  if (name==='sell') loadSellPage()
+  if (name==='eod') loadEod()
+}
+
+window.logout = () => { localStorage.removeItem('pf_user'); window.location.href = 'index.html' }
+
+async function loadHome() {
+  const today = new Date().toISOString().split('T')[0]
+  const { data: prod } = await sb.from('daily_production').select('*').eq('date', today).single()
+  todayProd = prod
+
+  // Get float (cashier orders marked as is_walkin with cashier_id)
+  const { data: floatData } = await sb.from('cashier_float')
+    .select('*').eq('cashier_id', user.id).eq('date', today).eq('status', 'approved').single()
+  todayFloat = floatData
+
+  if (!floatData) {
+    document.getElementById('no-float-state').style.display = 'block'
+    document.getElementById('float-state').style.display = 'none'
+    return
+  }
+
+  document.getElementById('no-float-state').style.display = 'none'
+  document.getElementById('float-state').style.display = 'block'
+
+  const remaining = floatData.bags_allocated - floatData.bags_sold
+  const pct = floatData.bags_allocated > 0 ? Math.round((floatData.bags_sold / floatData.bags_allocated) * 100) : 0
+
+  document.getElementById('float-allocated').textContent = floatData.bags_allocated
+  document.getElementById('float-sold').textContent = floatData.bags_sold
+  document.getElementById('float-remaining').textContent = remaining
+  document.getElementById('float-cash').textContent = '₦' + floatData.cash_collected.toLocaleString()
+  document.getElementById('float-progress').style.width = pct + '%'
+  document.getElementById('float-pct').textContent = pct + '%'
+
+  // Recent sales
+  const { data: sales } = await sb.from('cashier_sales')
+    .select('*').eq('cashier_id', user.id).eq('date', today).order('created_at', {ascending:false}).limit(5)
+  todaySales = sales || []
+
+  if (!todaySales.length) {
+    document.getElementById('recent-sales').innerHTML = '<div class="empty">No sales yet today</div>'
+  } else {
+    document.getElementById('recent-sales').innerHTML = todaySales.map(saleCard).join('')
+  }
+}
+
+async function loadSellPage() {
+  const today = new Date().toISOString().split('T')[0]
+  if (!todayProd) {
+    const { data: prod } = await sb.from('daily_production').select('*').eq('date', today).single()
+    todayProd = prod
+  }
+  if (!todayFloat) {
+    const { data: f } = await sb.from('cashier_float').select('*').eq('cashier_id', user.id).eq('date', today).eq('status', 'approved').single()
+    todayFloat = f
+  }
+
+  if (!todayFloat) {
+    document.getElementById('sell-no-float').style.display = 'block'
+    document.getElementById('sell-btn').disabled = true
+  } else {
+    document.getElementById('sell-no-float').style.display = 'none'
+    document.getElementById('sell-btn').disabled = false
+  }
+
+  if (todayProd) document.getElementById('sale-price').textContent = '₦' + todayProd.price_per_bag + '/bag'
+
+  const { data: sales } = await sb.from('cashier_sales')
+    .select('*').eq('cashier_id', user.id).eq('date', today).order('created_at', {ascending:false})
+  document.getElementById('sales-log').innerHTML = sales?.length ? sales.map(saleCard).join('') : '<div class="empty">No sales yet</div>'
+}
+
+function saleCard(s) {
+  return `<div class="sale-card">
+    <div class="sc-left">
+      <div class="sc-bags">${s.bags_sold} bag${s.bags_sold>1?'s':''}</div>
+      <div class="sc-time">${new Date(s.created_at).toLocaleTimeString('en-NG',{hour:'2-digit',minute:'2-digit'})}</div>
+    </div>
+    <div class="sc-right">
+      <div class="sc-amount">₦${s.amount.toLocaleString()}</div>
+      <span class="badge badge-${s.payment_method}">${s.payment_method}</span>
+    </div>
+  </div>`
+}
+
+window.calcSale = () => {
+  const bags = parseInt(document.getElementById('sell-bags').value) || 0
+  const price = todayProd?.price_per_bag || 0
+  document.getElementById('sale-total').textContent = '₦' + (bags * price).toLocaleString()
+}
+
+window.recordSale = async () => {
+  if (!todayFloat || !todayProd) { showAlert('sell-alert','error','No float assigned today'); return }
+  const bags = parseInt(document.getElementById('sell-bags').value)
+  const method = document.getElementById('sell-method').value
+  if (!bags || bags < 1) { showAlert('sell-alert','error','Enter number of bags'); return }
+
+  const remaining = todayFloat.bags_allocated - todayFloat.bags_sold
+  if (bags > remaining) { showAlert('sell-alert','error',`Only ${remaining} bags remaining in your float`); return }
+
+  const amount = bags * todayProd.price_per_bag
+  const btn = document.getElementById('sell-btn')
+  btn.innerHTML = '<span class="spinner"></span>Recording...'
+  btn.disabled = true
+
+  const today = new Date().toISOString().split('T')[0]
+
+  // Insert sale record
+  const { error } = await sb.from('cashier_sales').insert({
+    cashier_id: user.id, float_id: todayFloat.id,
+    bags_sold: bags, amount, payment_method: method, date: today
+  })
+
+  if (!error) {
+    // Update float
+    await sb.from('cashier_float').update({
+      bags_sold: todayFloat.bags_sold + bags,
+      cash_collected: todayFloat.cash_collected + amount
+    }).eq('id', todayFloat.id)
+    todayFloat.bags_sold += bags
+    todayFloat.cash_collected += amount
+  }
+
+  btn.innerHTML = '✅ Record Sale'
+  btn.disabled = false
+
+  if (error) { showAlert('sell-alert','error','Failed: '+error.message); return }
+  showAlert('sell-alert','success',`✅ Sale recorded! ${bags} bags for ₦${amount.toLocaleString()}`)
+  document.getElementById('sell-bags').value = ''
+  document.getElementById('sale-total').textContent = '₦0'
+  loadSellPage()
+}
+
+window.requestFloat = async () => {
+  const bags = parseInt(document.getElementById('req-bags').value)
+  if (!bags || bags<1) { showAlert('req-alert','error','Enter number of bags'); return }
+
+  const today = new Date().toISOString().split('T')[0]
+  const { data: prod } = await sb.from('daily_production').select('*').eq('date', today).single()
+  if (!prod) { showAlert('req-alert','error','No production logged for today yet'); return }
+  if (bags > prod.available_bags) { showAlert('req-alert','error',`Only ${prod.available_bags} bags available`); return }
+
+  const btn = document.querySelector('#page-request .btn')
+  btn.innerHTML = '<span class="spinner"></span>Sending...'
+  btn.disabled = true
+
+  // Check if float already exists for today
+  const { data: existing } = await sb.from('cashier_float')
+    .select('id').eq('cashier_id', user.id).eq('date', today).single()
+
+  let error
+  if (existing) {
+    // Update existing float
+    const { error: updateErr } = await sb.from('cashier_float')
+      .update({ bags_allocated: bags, status: 'pending' })
+      .eq('id', existing.id)
+    error = updateErr
+  } else {
+    // Insert new float
+    const { error: insertErr } = await sb.from('cashier_float').insert({
+      cashier_id: user.id, production_id: prod.id,
+      date: today, bags_allocated: bags, bags_sold: 0, cash_collected: 0,
+      status: 'pending'
+    })
+    error = insertErr
+  }
+
+  btn.innerHTML = '📤 Send Request to Admin'
+  btn.disabled = false
+
+  if (error) { showAlert('req-alert','error','Failed: '+error.message); return }
+  showAlert('req-alert','success',`✅ Request sent to admin for ${bags} bags. Wait for approval.`)
+  document.getElementById('req-bags').value = ''
+}
+
+// END-OF-DAY RECONCILIATION
+let eodFloat = null
+
+async function loadEod() {
+  const today = new Date().toISOString().split('T')[0]
+  const { data: f } = await sb.from('cashier_float').select('*').eq('cashier_id', user.id).eq('date', today).eq('status', 'approved').single()
+  eodFloat = f
+  const infoEl = document.getElementById('eod-system-info')
+
+  if (!f) {
+    infoEl.innerHTML = '<div class="empty">No approved float for today</div>'
+    document.getElementById('eod-btn').disabled = true
+    return
+  }
+
+  if (f.eod_submitted) {
+    infoEl.innerHTML = `<div style="color:var(--success);font-weight:600">✅ End-of-day already submitted for today</div>
+      <div style="margin-top:8px;font-size:13px;color:var(--muted)">Cash reported: ₦${(f.eod_actual_cash||0).toLocaleString()} | Discrepancy: ₦${(f.eod_discrepancy||0).toLocaleString()}</div>`
+    document.getElementById('eod-btn').disabled = true
+    return
+  }
+
+  const expectedCash = (f.bags_sold || 0) * (todayProd?.price_per_bag || 0)
+  document.getElementById('eod-unsold-bags').value = Math.max(0, f.bags_allocated - f.bags_sold)
+  infoEl.innerHTML = `<div style="display:flex;gap:12px;flex-wrap:wrap;">
+    <div style="flex:1;min-width:100px"><div style="font-size:11px;color:var(--muted)">ALLOCATED</div><div style="font-family:Syne,sans-serif;font-size:20px;font-weight:800">${f.bags_allocated} bags</div></div>
+    <div style="flex:1;min-width:100px"><div style="font-size:11px;color:var(--muted)">SOLD</div><div style="font-family:Syne,sans-serif;font-size:20px;font-weight:800;color:var(--success)">${f.bags_sold} bags</div></div>
+    <div style="flex:1;min-width:100px"><div style="font-size:11px;color:var(--muted)">EXPECTED CASH</div><div style="font-family:Syne,sans-serif;font-size:20px;font-weight:800;color:var(--success)">₦${expectedCash.toLocaleString()}</div></div>
+  </div>`
+  document.getElementById('eod-btn').disabled = false
+}
+
+window.calcEodDiff = () => {
+  if (!eodFloat || !todayProd) return
+  const expectedCash = (eodFloat.bags_sold || 0) * (todayProd?.price_per_bag || 0)
+  const actual = parseFloat(document.getElementById('eod-actual-cash').value) || 0
+  const diff = actual - expectedCash
+  const diffEl = document.getElementById('eod-discrepancy')
+  diffEl.textContent = (diff >= 0 ? '+' : '') + '₦' + Math.abs(diff).toLocaleString()
+  diffEl.style.color = diff === 0 ? 'var(--success)' : diff < 0 ? 'var(--danger)' : 'var(--warning)'
+  document.getElementById('eod-expected').textContent = '₦' + expectedCash.toLocaleString()
+  document.getElementById('eod-reported').textContent = '₦' + actual.toLocaleString()
+  document.getElementById('eod-diff-display').style.display = 'block'
+}
+
+window.submitEod = async () => {
+  if (!eodFloat || !todayProd) { showAlert('eod-alert','error','No float data to close'); return }
+  const actual = parseFloat(document.getElementById('eod-actual-cash').value)
+  const unsold = parseInt(document.getElementById('eod-unsold-bags').value) || 0
+  const notes = document.getElementById('eod-notes').value.trim()
+  if (isNaN(actual) || actual < 0) { showAlert('eod-alert','error','Enter actual cash amount'); return }
+
+  const expectedCash = (eodFloat.bags_sold || 0) * (todayProd?.price_per_bag || 0)
+  const discrepancy = actual - expectedCash
+
+  const btn = document.getElementById('eod-btn')
+  btn.innerHTML = '<span class="spinner"></span>Submitting...'
+  btn.disabled = true
+
+  await sb.from('cashier_float').update({
+    eod_submitted: true,
+    eod_actual_cash: actual,
+    eod_discrepancy: discrepancy,
+    eod_notes: notes,
+    eod_unsold_bags: unsold,
+    status: 'closed'
+  }).eq('id', eodFloat.id)
+
+  // Return unsold bags to production inventory
+  if (unsold > 0) {
+    const today = new Date().toISOString().split('T')[0]
+    const { data: prod } = await sb.from('daily_production').select('*').eq('date', today).single()
+    if (prod) await sb.from('daily_production').update({ available_bags: prod.available_bags + unsold }).eq('date', today)
+  }
+
+  btn.innerHTML = '🔒 Submit End-of-Day Report'
+  showAlert('eod-alert', 'success', `✅ Day closed! Cash: ₦${actual.toLocaleString()} | Discrepancy: ₦${discrepancy.toLocaleString()}${unsold>0?' | '+unsold+' bags returned to stock':''}`)
+  loadEod()
+}
+
+
+function showAlert(id, type, msg) {
+  const el = document.getElementById(id)
+  if (!el) return
+  el.innerHTML = `<div class="alert alert-${type==='success'?'success':'error'}">${msg}</div>`
+  setTimeout(() => { try{el.innerHTML=''}catch(e){} }, 5000)
+}
+
+loadHome()
+
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => console.log('[PureFlow] SW registered:', reg.scope))
+        .catch(err => console.warn('[PureFlow] SW registration failed:', err))
+    })
+  }
+</script>
+</body>
+</html>

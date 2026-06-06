@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>PureFlow — Driver</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --blue:#1A56DB; --cyan:#2563EB;
+    --dark:#F0F4F8; --dark2:#E8EEF7; --card:#FFFFFF;
+    --border:#C7D7ED; --text:#1A2340; --muted:#5B6B8C;
+    --success:#10B981; --warning:#D97706; --danger:#EF4444;
+  }
+  body{font-family:'DM Sans',sans-serif;background:var(--dark);color:var(--text);min-height:100vh}
+
+  .topbar{background:var(--card);border-bottom:1px solid var(--border);padding:13px 16px;
+    display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;
+    box-shadow:0 1px 4px rgba(0,0,0,0.07);}
+  .topbar-brand{font-family:'Syne',sans-serif;font-weight:800;font-size:17px;color:var(--blue);}
+  .topbar-user{display:flex;align-items:center;gap:10px;}
+  .topbar-user span{font-size:13px;color:var(--muted);font-weight:500;}
+  .logout-btn{background:transparent;border:1px solid var(--border);border-radius:7px;
+    padding:6px 12px;color:var(--muted);font-size:12px;cursor:pointer;font-weight:600;transition:all 0.2s;}
+  .logout-btn:hover{border-color:var(--danger);color:var(--danger);}
+
+  .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--card);
+    border-top:1px solid var(--border);display:flex;z-index:50;box-shadow:0 -2px 8px rgba(0,0,0,0.07);}
+  .bn-item{flex:1;text-align:center;padding:11px 8px;cursor:pointer;color:var(--muted);
+    font-size:11px;font-weight:600;transition:all 0.2s;border-top:3px solid transparent;}
+  .bn-item .bn-icon{font-size:22px;display:block;margin-bottom:3px}
+  .bn-item.active{color:var(--blue);border-top-color:var(--blue);}
+
+  .content{padding:16px;padding-bottom:90px;max-width:600px;margin:0 auto}
+
+  .page{display:none}
+  .page.active{display:block;animation:fadeIn 0.3s ease}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+  .hero{background:linear-gradient(135deg,var(--blue),#0080FF);
+    border-radius:16px;padding:22px;margin-bottom:18px;color:#fff;box-shadow:0 4px 12px rgba(26,86,219,0.3);}
+  .hero h2{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-bottom:3px;}
+  .hero p{font-size:14px;opacity:0.9;}
+
+  .cards-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px}
+  .mini-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,0.05);}
+  .mini-card .mc-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;font-weight:600;}
+  .mini-card .mc-value{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--blue);}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,0.05);}
+  .card-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:14px;color:var(--text);}
+
+  .stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px}
+  .stat{background:var(--dark2);border-radius:10px;padding:12px;text-align:center;border:1px solid var(--border);}
+  .stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:4px;font-weight:600;}
+  .stat-value{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--text);}
+  .progress-wrap{background:var(--dark2);border-radius:8px;height:8px;overflow:hidden;margin:10px 0;border:1px solid var(--border);}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--blue),#0080FF);border-radius:8px;transition:width 0.5s}
+
+  label{display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.7px;margin-bottom:7px}
+  input,select{width:100%;background:var(--dark2);border:1.5px solid var(--border);border-radius:10px;
+    padding:12px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;
+    margin-bottom:14px;outline:none;transition:all 0.2s;}
+  input::placeholder{color:var(--muted);}
+  input:focus,select:focus{border-color:var(--blue);background:#fff;box-shadow:0 0 0 3px rgba(26,86,219,0.1);}
+  select option{background:var(--card);color:var(--text);}
+
+  .btn{width:100%;padding:13px;background:linear-gradient(135deg,var(--blue),var(--blue-dark,#0F47D4));
+    color:#fff;border:none;border-radius:10px;font-family:'Syne',sans-serif;
+    font-size:15px;font-weight:700;cursor:pointer;transition:all 0.2s;box-shadow:0 3px 10px rgba(26,86,219,0.3);}
+  .btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 5px 14px rgba(26,86,219,0.4);}
+  .btn:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+  .btn-outline{background:transparent;border:1.5px solid var(--border);box-shadow:none;color:var(--text);}
+  .btn-outline:hover:not(:disabled){border-color:var(--blue);color:var(--blue);background:#EBF2FF;}
+  .btn-success{background:linear-gradient(135deg,var(--success),#059669);color:#fff;box-shadow:0 3px 10px rgba(16,185,129,0.3);}
+  .btn-danger{background:linear-gradient(135deg,var(--danger),#DC2626);box-shadow:0 3px 10px rgba(239,68,68,0.3);}
+
+  .order-calc{background:var(--dark2);border-radius:12px;padding:14px;margin-bottom:14px;border:1px solid var(--border);}
+  .calc-row{display:flex;justify-content:space-between;padding:7px 0;
+    font-size:13px;border-bottom:1px solid var(--border);}
+  .calc-row:last-child{border-bottom:none;font-weight:700;font-size:15px;color:var(--blue);}
+  .calc-row span:first-child{color:var(--muted);}
+
+  .order-card{background:var(--card);border:1px solid var(--border);border-radius:12px;
+    padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.05);}
+  .order-card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+  .order-card-id{font-size:11px;color:var(--muted);}
+  .order-card-body{display:flex;gap:14px;flex-wrap:wrap;}
+  .oc-item{flex:1;min-width:80px;}
+  .oc-item .oc-label{font-size:11px;color:var(--muted);margin-bottom:3px;font-weight:600;text-transform:uppercase;}
+  .oc-item .oc-value{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--blue);}
+
+  .badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;}
+  .badge-paid{background:rgba(16,185,129,0.12);color:var(--success);}
+  .badge-unpaid{background:rgba(239,68,68,0.12);color:var(--danger);}
+  .badge-partial{background:rgba(217,119,6,0.12);color:var(--warning);}
+  .badge-pending{background:rgba(91,107,140,0.12);color:var(--muted);}
+  .badge-delivered{background:rgba(16,185,129,0.12);color:var(--success);}
+  .badge-approved{background:rgba(26,86,219,0.12);color:var(--blue);}
+  .badge-pending_confirmation{background:rgba(217,119,6,0.12);color:var(--warning);}
+  .badge-cash{background:rgba(16,185,129,0.12);color:var(--success);}
+  .badge-transfer{background:rgba(26,86,219,0.12);color:var(--blue);}
+
+  .sale-card{background:var(--dark2);border-radius:12px;padding:13px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border);}
+  .sc-left .sc-time{font-size:11px;color:var(--muted);}
+  .sc-left .sc-bags{font-weight:600;color:var(--text);}
+  .sc-right{text-align:right;}
+  .sc-right .sc-amount{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:var(--success);}
+
+  .alert{padding:12px 14px;border-radius:10px;font-size:13px;margin-bottom:14px;}
+  .alert-success{background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);color:var(--success);}
+  .alert-error{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:var(--danger);}
+
+  .empty{text-align:center;padding:40px 20px;color:var(--muted);}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.4);
+    border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .big-num{font-family:'Syne',sans-serif;font-size:34px;font-weight:800;text-align:center;margin:14px 0;}
+  .request-card{background:var(--primary-light,#EBF2FF);border:1px solid rgba(26,86,219,0.2);border-radius:12px;padding:14px;margin-bottom:14px;}
+
+  /* DRIVER SPECIFIC */
+  .page-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-bottom:6px;color:var(--text);}
+  .page-sub{color:var(--muted);font-size:13px;margin-bottom:18px;}
+  .delivery-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,0.05);}
+  .dc-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;}
+  .dc-vendor{font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:var(--text);}
+  .dc-phone{font-size:13px;color:var(--muted);margin-top:2px;}
+  .dc-bags{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:var(--blue);}
+  .dc-bags-label{font-size:11px;color:var(--muted);font-weight:600;}
+  .dc-row{display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
+  .dc-info{background:var(--dark2);border-radius:10px;padding:10px 14px;flex:1;min-width:100px;border:1px solid var(--border);}
+  .dc-info-label{font-size:11px;color:var(--muted);margin-bottom:3px;font-weight:600;text-transform:uppercase;}
+  .dc-info-value{font-size:14px;font-weight:600;color:var(--text);}
+  .call-btn{display:flex;align-items:center;gap:6px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);
+    color:var(--success);border-radius:8px;padding:9px 14px;font-size:13px;font-weight:600;
+    cursor:pointer;text-decoration:none;margin-bottom:14px;}
+  .deliver-form{background:var(--dark2);border-radius:12px;padding:14px;border:1px solid var(--border);}
+  .deliver-form label{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;
+    letter-spacing:0.6px;margin-bottom:7px;font-weight:600;}
+  .deliver-form input{width:100%;background:var(--card);border:1.5px solid var(--border);
+    border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;margin-bottom:12px;}
+  .deliver-form input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,86,219,0.1);}
+  .deliver-form select{width:100%;background:var(--card);border:1.5px solid var(--border);
+    border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;outline:none;margin-bottom:12px;}
+  .deliver-form select:focus{border-color:var(--blue);}
+  .delivered-overlay{background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);
+    border-radius:10px;padding:14px;text-align:center;color:var(--success);font-weight:600;}
+  .empty-icon{font-size:48px;display:block;margin-bottom:12px;}
+  .eod-diff-section{display:none;background:var(--dark2);border-radius:10px;padding:14px;margin-top:12px;border:1px solid var(--border);}
+
+  @media (max-width: 480px) {
+    .content{padding:12px;padding-bottom:90px;}
+    .topbar{padding:11px 13px;}
+    .topbar-user span{display:none;}
+    .hero{padding:18px;margin-bottom:14px;}
+    .hero h2{font-size:20px;}
+    .card{padding:13px;}
+    input,select{font-size:16px;padding:11px 12px;}
+    .btn{font-size:14px;padding:12px;}
+    .stats-row{grid-template-columns:1fr 1fr 1fr;}
+    .cards-row{gap:8px;}
+    .mini-card{padding:12px;}
+    .mini-card .mc-value{font-size:16px;}
+  }
+</style>
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1A56DB">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="PureFlow">
+  <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152x152.png">
+  <link rel="apple-touch-icon" sizes="144x144" href="icons/icon-144x144.png">
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-brand">🚚 PureFlow Driver</div>
+  <button class="logout-btn" onclick="logout()">Logout</button>
+</div>
+<div class="content">
+  <div class="page-title" id="driver-greeting">Delivery Manifest</div>
+  <div class="page-sub" id="driver-date">Today's approved deliveries</div>
+  <div id="driver-alert"></div>
+  <div id="deliveries-list"><div class="empty"><span class="empty-icon">⏳</span>Loading your deliveries...</div></div>
+</div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+const sb = createClient(
+  'https://jiwbifgdzxbtludusctf.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imppd2JpZmdkenhidGx1ZHVzY3RmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2ODUyNDMsImV4cCI6MjA5NjI2MTI0M30.iIlsTnHgZLGq2-EvbJAcTl6WcjmqM3gi5cjnNykjOYs'
+)
+
+const _dRaw = localStorage.getItem('pf_user')
+let user = null
+try { user = JSON.parse(_dRaw) } catch(e) {}
+if (!user || user.role !== 'driver') window.location.href = 'index.html'
+if (user._expires && Date.now() > user._expires) { localStorage.removeItem('pf_user'); window.location.href = 'index.html' }
+function touchSession() { if(user){ user._expires = Date.now() + 8*60*60*1000; localStorage.setItem('pf_user', JSON.stringify(user)) } }
+document.addEventListener('click', (e) => { if (!e.target.closest('.logout-btn')) touchSession() })
+document.getElementById('driver-greeting').textContent = 'Hey ' + user.full_name.split(' ')[0] + '! 🚚'
+document.getElementById('driver-date').textContent = new Date().toLocaleDateString('en-NG',{weekday:'long',day:'numeric',month:'long'})
+window.logout = () => { localStorage.removeItem('pf_user'); window.location.href = 'index.html' }
+
+async function loadDeliveries() {
+  const today = new Date().toISOString().split('T')[0]
+  const todayStart = today + 'T00:00:00', todayEnd = today + 'T23:59:59'
+
+  // Show orders assigned to this driver OR unassigned — today only
+  const { data: orders } = await sb.from('orders')
+    .select('*, users(full_name, phone, address)')
+    .in('order_status', ['approved', 'dispatched', 'delivered'])
+    .gte('created_at', todayStart)
+    .lte('created_at', todayEnd)
+    .or(`assigned_driver_id.eq.${user.id},assigned_driver_id.is.null`)
+    .order('created_at', {ascending:true})
+
+  const list = document.getElementById('deliveries-list')
+
+  if (!orders?.length) {
+    list.innerHTML = '<div class="empty"><span class="empty-icon">📭</span>No deliveries for today yet.<br><small>Ask admin to approve orders first.</small></div>'
+    return
+  }
+
+  list.innerHTML = orders.map(o => buildCard(o)).join('')
+}
+
+function buildCard(o) {
+  const vendorName = o.is_walkin ? 'Walk-in Customer' : (o.users?.full_name || 'Unknown')
+  const phone = o.users?.phone || ''
+  const address = o.users?.address || 'No address on file'
+  const outstanding = o.total_amount - o.amount_paid
+  const driverLabel = o.assigned_driver_id && o.assigned_driver_id !== user.id
+    ? `<div style="background:rgba(255,68,85,0.1);border:1px solid rgba(255,68,85,0.3);border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:13px;color:var(--danger)">⚠️ Assigned to another driver</div>` : ''
+
+  if (o.order_status === 'delivered') {
+    return `<div class="delivery-card">
+      <div class="dc-header">
+        <div><div class="dc-vendor">${vendorName}</div><div class="dc-phone">${phone}</div></div>
+        <div style="text-align:right"><div class="dc-bags">${o.bags_ordered}</div><div class="dc-bags-label">bags</div></div>
+      </div>
+      <div class="delivered-overlay">✅ Delivered Successfully</div>
+    </div>`
+  }
+
+  const otpExpired = o.otp_expires_at && new Date(o.otp_expires_at) < new Date()
+  const otpWarning = otpExpired
+    ? `<div style="background:rgba(255,68,85,0.1);border:1px solid rgba(255,68,85,0.3);border-radius:8px;padding:10px;margin-bottom:10px;font-size:13px;color:var(--danger)">⏰ OTP has expired. Ask admin to generate a new one.</div>`
+    : ''
+
+  return `<div class="delivery-card" id="card-${o.id}">
+    ${driverLabel}
+    <div class="dc-header">
+      <div><div class="dc-vendor">${vendorName}</div><div class="dc-phone">${phone}</div></div>
+      <div style="text-align:right"><div class="dc-bags">${o.bags_ordered}</div><div class="dc-bags-label">bags</div></div>
+    </div>
+    <div class="dc-row">
+      <div class="dc-info"><div class="dc-info-label">Amount</div><div class="dc-info-value">₦${o.total_amount.toLocaleString()}</div></div>
+      <div class="dc-info"><div class="dc-info-label">Payment</div><div class="dc-info-value"><span class="badge badge-${o.payment_status}">${o.payment_status}</span></div></div>
+      ${outstanding>0?`<div class="dc-info"><div class="dc-info-label">Outstanding</div><div class="dc-info-value" style="color:var(--warning)">₦${outstanding.toLocaleString()}</div></div>`:''}
+    </div>
+    <div class="dc-info" style="margin-bottom:14px"><div class="dc-info-label">📍 Address</div><div class="dc-info-value">${address}</div></div>
+    ${phone?`<a href="tel:${phone}" class="call-btn">📞 Call ${vendorName}</a>`:''}
+    <div class="deliver-form">
+      <div id="alert-${o.id}"></div>
+      ${otpWarning}
+      <div style="background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:10px;padding:12px;margin-bottom:14px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">🔐 DELIVERY VERIFICATION</div>
+        <div style="font-size:13px;color:var(--text);">Ask <strong>${vendorName}</strong> for their 4-digit code, then enter below.</div>
+      </div>
+      <label>Bags Delivered</label>
+      <input type="number" id="del-${o.id}" value="${o.bags_ordered}" max="${o.bags_ordered}" min="0" />
+
+      <label>💥 Burst Sachets (total sachets that burst, 0 if none)</label>
+      <input type="number" id="burst-sachets-${o.id}" value="0" min="0" max="${o.bags_ordered*20}" oninput="calcBurst('${o.id}', ${o.bags_ordered})" />
+
+      <label>Were burst sachets replaced?</label>
+      <select id="burst-replaced-${o.id}" onchange="calcBurst('${o.id}', ${o.bags_ordered})">
+        <option value="yes">✅ Yes — replaced all on the spot</option>
+        <option value="partial">⚠️ Partial — replaced some</option>
+        <option value="no">❌ No — vendor aware, none replaced</option>
+      </select>
+
+      <div id="burst-replaced-count-wrap-${o.id}" style="display:none">
+        <label>How many sachets replaced?</label>
+        <input type="number" id="burst-replaced-count-${o.id}" value="0" min="0" oninput="calcBurst('${o.id}', ${o.bags_ordered})" />
+      </div>
+
+      <div id="burst-summary-${o.id}" style="font-size:13px;color:var(--muted);background:var(--dark);border-radius:8px;padding:10px;margin-bottom:14px;">No burst sachets recorded</div>
+
+      <label>4-Digit Code from Vendor</label>
+      <input type="password" id="otp-${o.id}" placeholder="Enter vendor's code" maxlength="4" style="letter-spacing:8px;font-size:20px;text-align:center;" />
+      <button class="btn btn-success" onclick="markDelivered('${o.id}', ${o.bags_ordered}, '${o.delivery_otp}', ${otpExpired})">✅ Confirm Delivery</button>
+    </div>
+  </div>`
+}
+
+window.calcBurst = (orderId, totalBags) => {
+  const burstSachets = parseInt(document.getElementById('burst-sachets-'+orderId).value) || 0
+  const replaced = document.getElementById('burst-replaced-'+orderId).value
+  const wrapEl = document.getElementById('burst-replaced-count-wrap-'+orderId)
+  const summaryEl = document.getElementById('burst-summary-'+orderId)
+
+  // Show partial replacement count input
+  wrapEl.style.display = replaced === 'partial' ? 'block' : 'none'
+
+  const replacedCount = replaced === 'yes' ? burstSachets
+    : replaced === 'partial' ? (parseInt(document.getElementById('burst-replaced-count-'+orderId)?.value) || 0)
+    : 0
+
+  const notReplaced = burstSachets - replacedCount
+  const bagsAffected = Math.ceil(burstSachets / 20)
+
+  if (burstSachets === 0) {
+    summaryEl.textContent = 'No burst sachets recorded'
+    summaryEl.style.color = 'var(--muted)'
+    return
+  }
+
+  summaryEl.innerHTML = `
+    💥 <strong>${burstSachets} sachets burst</strong> across ~${bagsAffected} bag(s)<br>
+    ✅ Replaced: ${replacedCount} sachets<br>
+    ❌ Not replaced: <strong style="color:var(--warning)">${notReplaced} sachets</strong> — factory loss
+  `
+  summaryEl.style.color = 'var(--text)'
+}
+
+window.markDelivered = async (orderId, totalBags, correctOtp, otpExpired) => {
+  const delivered = parseInt(document.getElementById('del-'+orderId).value) || 0
+  const burstSachets = parseInt(document.getElementById('burst-sachets-'+orderId).value) || 0
+  const replacedStatus = document.getElementById('burst-replaced-'+orderId).value
+  const replacedCount = replacedStatus === 'yes' ? burstSachets
+    : replacedStatus === 'partial' ? (parseInt(document.getElementById('burst-replaced-count-'+orderId)?.value) || 0)
+    : 0
+  const notReplacedSachets = burstSachets - replacedCount
+  const enteredOtp = document.getElementById('otp-'+orderId).value.trim()
+  const alertEl = document.getElementById('alert-'+orderId)
+
+  // Validate OTP
+  if (!enteredOtp || enteredOtp.length !== 4) {
+    alertEl.innerHTML = '<div class="alert alert-error">⚠️ Enter the 4-digit code from the vendor</div>'
+    return
+  }
+  if (otpExpired) {
+    alertEl.innerHTML = '<div class="alert alert-error">⏰ OTP has expired. Ask admin to generate a new one from the Orders page.</div>'
+    return
+  }
+  if (enteredOtp !== correctOtp) {
+    alertEl.innerHTML = '<div class="alert alert-error">❌ Wrong code! Ask the vendor to check their dashboard for the correct code.</div>'
+    return
+  }
+  if (delivered < 1) {
+    alertEl.innerHTML = '<div class="alert alert-error">Enter number of bags delivered</div>'
+    return
+  }
+  if (delivered > totalBags) {
+    alertEl.innerHTML = '<div class="alert alert-error">Cannot deliver more bags than ordered</div>'
+    return
+  }
+
+  const btn = document.querySelector(`#card-${orderId} .btn`)
+  btn.innerHTML = '<span class="spinner"></span>Confirming...'
+  btn.disabled = true
+
+  const { error } = await sb.from('orders').update({
+    order_status: 'delivered',
+    bags_delivered: delivered,
+    bags_burst: Math.ceil(burstSachets / 20),   // convert sachets → bags for stock
+    burst_sachets: burstSachets,
+    burst_replaced: replacedCount,
+    burst_not_replaced: notReplacedSachets,
+    burst_replace_status: replacedStatus
+  }).eq('id', orderId)
+
+  if (error) {
+    alertEl.innerHTML = '<div class="alert alert-error">Failed: ' + error.message + '</div>'
+    btn.innerHTML = '✅ Confirm Delivery'
+    btn.disabled = false
+    return
+  }
+
+  loadDeliveries()
+}
+
+loadDeliveries()
+
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => console.log('[PureFlow] SW registered:', reg.scope))
+        .catch(err => console.warn('[PureFlow] SW registration failed:', err))
+    })
+  }
+</script>
+</body>
+</html>

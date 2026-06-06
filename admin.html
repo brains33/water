@@ -1,0 +1,1441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>PureFlow — Admin Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --blue: #1A56DB;
+    --blue-dark: #0F47D4;
+    --cyan: #2563EB;
+    --dark: #F0F4F8;
+    --dark2: #E8EEF7;
+    --card: #FFFFFF;
+    --border: #C7D7ED;
+    --text: #1A2340;
+    --muted: #5B6B8C;
+    --success: #10B981;
+    --warning: #D97706;
+    --danger: #EF4444;
+    --sidebar: 240px;
+  }
+
+  body { font-family: 'DM Sans', sans-serif; background: var(--dark); color: var(--text); min-height: 100vh; display: flex; }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: var(--sidebar); background: var(--card); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; padding: 20px 0; position: fixed; top: 0; left: 0; height: 100vh; z-index: 100;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.06); overflow-y: auto;
+  }
+  .sidebar-brand { padding: 0 16px 20px; border-bottom: 1px solid var(--border); }
+  .sidebar-brand h2 { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800; color: var(--blue); }
+  .sidebar-brand p { color: var(--muted); font-size: 11px; margin-top: 4px; }
+
+  .nav { flex: 1; padding: 12px 8px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px;
+    cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 600; margin-bottom: 4px; transition: all 0.2s;
+  }
+  .nav-item:hover { background: #EBF2FF; color: var(--blue); }
+  .nav-item.active { background: var(--blue); color: #fff; }
+  .nav-item span { font-size: 18px; }
+
+  .sidebar-footer { padding: 12px 8px; border-top: 1px solid var(--border); }
+  .user-info { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+  .avatar { width: 36px; height: 36px; background: linear-gradient(135deg, var(--blue), #0080FF);
+    border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .user-info h4 { font-size: 13px; font-weight: 700; color: var(--text); }
+  .user-info p { font-size: 11px; color: var(--muted); }
+  .logout-btn { width: 100%; padding: 10px; background: transparent; border: 1.5px solid var(--border);
+    border-radius: 8px; color: var(--muted); font-size: 13px; cursor: pointer; margin-top: 8px; transition: all 0.2s; font-weight: 600; }
+  .logout-btn:hover { border-color: var(--danger); color: var(--danger); background: rgba(239,68,68,0.05); }
+
+  /* MAIN */
+  .main { margin-left: var(--sidebar); flex: 1; padding: 24px; overflow-y: auto; }
+
+  .page { display: none; animation: fadeIn 0.3s ease; }
+  .page.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .page-header { margin-bottom: 24px; }
+  .page-header h1 { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; color: var(--text); }
+  .page-header p { color: var(--muted); font-size: 14px; margin-top: 4px; }
+
+  /* STAT CARDS */
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .stat-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px;
+    position: relative; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .stat-card.blue::before { background: var(--blue); }
+  .stat-card.green::before { background: var(--success); }
+  .stat-card.yellow::before { background: var(--warning); }
+  .stat-card.red::before { background: var(--danger); }
+  .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 8px; font-weight: 600; }
+  .stat-value { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; color: var(--text); }
+  .stat-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  /* CARDS */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .card-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 16px;
+    display: flex; align-items: center; justify-content: space-between; color: var(--text); }
+
+  /* FORMS */
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-group { margin-bottom: 16px; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 8px; }
+  input, select, textarea {
+    width: 100%; background: var(--dark2); border: 1.5px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none; transition: all 0.2s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--blue); background: #fff; box-shadow: 0 0 0 3px rgba(26,86,219,0.1); }
+  select option { background: var(--card); color: var(--text); }
+
+  .btn {
+    padding: 11px 18px; background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+    color: #fff; border: none; border-radius: 10px; font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(26,86,219,0.25);
+  }
+  .btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(26,86,219,0.35); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn-sm { padding: 7px 13px; font-size: 12px; }
+  .btn-success { background: linear-gradient(135deg, var(--success), #059669); box-shadow: 0 2px 8px rgba(16,185,129,0.25); }
+  .btn-danger { background: linear-gradient(135deg, var(--danger), #DC2626); box-shadow: 0 2px 8px rgba(239,68,68,0.25); }
+  .btn-outline { background: transparent; border: 1.5px solid var(--border); box-shadow: none; color: var(--text); }
+  .btn-outline:hover:not(:disabled) { border-color: var(--blue); color: var(--blue); background: #EBF2FF; transform: translateY(-1px); }
+  .btn-warning { background: linear-gradient(135deg, var(--warning), #B45309); box-shadow: 0 2px 8px rgba(217,119,6,0.25); color: #fff; }
+
+  /* TABLE */
+  table { width: 100%; border-collapse: collapse; }
+  th { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.7px;
+    padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); background: var(--dark2); font-weight: 700; }
+  td { padding: 12px 12px; font-size: 13px; border-bottom: 1px solid var(--border); color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #EBF2FF; }
+
+  /* BADGES */
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+  }
+  .badge-paid { background: rgba(16,185,129,0.12); color: var(--success); }
+  .badge-unpaid { background: rgba(239,68,68,0.12); color: var(--danger); }
+  .badge-partial { background: rgba(217,119,6,0.12); color: var(--warning); }
+  .badge-pending { background: rgba(91,107,140,0.12); color: var(--muted); }
+  .badge-delivered { background: rgba(16,185,129,0.12); color: var(--success); }
+  .badge-approved { background: rgba(26,86,219,0.12); color: var(--blue); }
+
+  /* PRODUCTION INDICATOR */
+  .production-bar { background: var(--dark2); border-radius: 8px; height: 10px; margin-top: 12px; overflow: hidden; border: 1px solid var(--border); }
+  .production-fill { height: 100%; background: linear-gradient(90deg, var(--blue), #0080FF); border-radius: 8px; transition: width 0.5s ease; }
+
+  .empty-state { text-align: center; padding: 40px; color: var(--muted); }
+  .empty-state p { font-size: 14px; margin-top: 8px; }
+
+  .alert { padding: 12px 16px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; }
+  .alert-success { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: var(--success); }
+  .alert-error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: var(--danger); }
+
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 768px) {
+    :root { --sidebar: 64px; }
+    .sidebar-brand, .nav-item .nav-label, .user-info div, .logout-btn { display: none; }
+    .sidebar { padding: 12px 0; }
+    .nav-item { flex-direction: column; justify-content: center; padding: 10px 4px; font-size: 10px; gap: 3px; }
+    .nav-item span { font-size: 20px; }
+    .main { margin-left: 64px; padding: 12px; }
+    .stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .form-row { grid-template-columns: 1fr; }
+    .card { padding: 14px; }
+    td, th { padding: 8px; font-size: 12px; }
+    .page-header h1 { font-size: 20px; }
+  }
+
+  @media (max-width: 480px) {
+    .main { padding: 8px; }
+    .stats-grid { grid-template-columns: 1fr; }
+    input, select, textarea { font-size: 16px; }
+  }
+</style>
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1A56DB">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="PureFlow">
+  <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152x152.png">
+  <link rel="apple-touch-icon" sizes="144x144" href="icons/icon-144x144.png">
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <h2>💧 PureFlow</h2>
+    <p>Admin Panel</p>
+  </div>
+  <nav class="nav">
+    <div class="nav-item active" onclick="showPage('overview')"><span>📊</span> Overview</div>
+    <div class="nav-item" onclick="showPage('production')"><span>🏭</span> Production</div>
+    <div class="nav-item" onclick="showPage('orders')"><span>📦</span> Orders</div>
+    <div class="nav-item" onclick="showPage('vendors')"><span>👥</span> Vendors</div>
+    <div class="nav-item" onclick="showPage('ledger')"><span>📒</span> Ledger</div>
+    <div class="nav-item" onclick="showPage('new-order')"><span>➕</span> New Order</div>
+    <div class="nav-item" onclick="showPage('cashier')"><span>💰</span> Cashier Floats <span id="float-badge" style="background:var(--danger);color:#fff;border-radius:20px;padding:1px 7px;font-size:10px;margin-left:4px;display:none">!</span></div>
+    <div class="nav-item" onclick="showPage('transfers')"><span>🏦</span> Transfers <span id="transfer-badge" style="background:var(--warning);color:#000;border-radius:20px;padding:1px 7px;font-size:10px;margin-left:4px;display:none">!</span></div>
+    <div class="nav-item" onclick="showPage('consumption')"><span>📈</span> Bag Flow</div>
+    <div class="nav-item" onclick="showPage('burst')"><span>💥</span> Burst Reports</div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="user-info">
+      <div class="avatar">👑</div>
+      <div>
+        <h4 id="admin-name">Admin</h4>
+        <p>Manager</p>
+      </div>
+    </div>
+    <button class="logout-btn" onclick="logout()">🚪 Logout</button>
+  </div>
+</aside>
+
+<!-- MAIN CONTENT -->
+<main class="main">
+
+  <!-- OVERVIEW PAGE -->
+  <div class="page active" id="page-overview">
+    <div class="page-header">
+      <h1>Good morning 👋</h1>
+      <p id="today-date">Today's operational summary</p>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card blue">
+        <div class="stat-label">Today's Production</div>
+        <div class="stat-value" id="stat-bags">— bags</div>
+        <div class="stat-sub" id="stat-available">— available</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Cash + Transfers</div>
+        <div class="stat-value" id="stat-collected">₦0</div>
+        <div class="stat-sub">Confirmed payments</div>
+      </div>
+      <div class="stat-card yellow">
+        <div class="stat-label">Outstanding Debt</div>
+        <div class="stat-value" id="stat-debt">₦0</div>
+        <div class="stat-sub">Unpaid / credit orders</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-label">Losses (Burst Sachets)</div>
+        <div class="stat-value" id="stat-losses">0</div>
+        <div class="stat-sub" id="stat-losses-sub">sachets not replaced today</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Today's Inventory Status</div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+        <span style="font-size:13px; color:var(--muted)">Bags sold / dispatched</span>
+        <span style="font-size:13px;" id="inv-used">0 / 0</span>
+      </div>
+      <div class="production-bar"><div class="production-fill" id="inv-bar" style="width:0%"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Recent Orders <button class="btn btn-sm" onclick="showPage('orders')">View All</button></div>
+      <div id="recent-orders-table">
+        <div class="empty-state">⏳<p>Loading orders...</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRODUCTION PAGE -->
+  <div class="page" id="page-production">
+    <div class="page-header">
+      <h1>🏭 Log Production</h1>
+      <p>Enter today's packaging output to activate the inventory system</p>
+    </div>
+
+    <div id="prod-alert"></div>
+
+    <div class="card">
+      <div class="card-title">Today's Batch Entry</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Total Bags Packaged</label>
+          <input type="number" id="prod-total" placeholder="e.g. 1000" min="1" />
+        </div>
+        <div class="form-group">
+          <label>Wastage / Burst Bags</label>
+          <input type="number" id="prod-wastage" placeholder="e.g. 20" min="0" value="0" />
+        </div>
+        <div class="form-group">
+          <label>Price Per Bag (₦)</label>
+          <input type="number" id="prod-price" placeholder="e.g. 200" min="1" />
+        </div>
+        <div class="form-group">
+          <label>Production Date</label>
+          <input type="date" id="prod-date" />
+        </div>
+      </div>
+      <div style="background:var(--dark2); border-radius:10px; padding:16px; margin-bottom:20px;" id="prod-preview" style="display:none">
+        <div style="font-size:13px; color:var(--muted); margin-bottom:8px;">Preview</div>
+        <div style="display:flex; gap:24px; flex-wrap:wrap;">
+          <div><div style="font-size:11px;color:var(--muted)">AVAILABLE BAGS</div><div style="font-size:20px;font-family:Syne,sans-serif;font-weight:800;" id="prev-available">—</div></div>
+          <div><div style="font-size:11px;color:var(--muted)">TOTAL VALUE</div><div style="font-size:20px;font-family:Syne,sans-serif;font-weight:800;color:var(--success);" id="prev-value">—</div></div>
+        </div>
+      </div>
+      <button class="btn" onclick="logProduction()">✅ Log Production Batch</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Production History</div>
+      <div id="prod-history"><div class="empty-state">⏳<p>Loading...</p></div></div>
+    </div>
+  </div>
+
+  <!-- ORDERS PAGE -->
+  <div class="page" id="page-orders">
+    <div class="page-header">
+      <h1>📦 Order Management</h1>
+      <p>Approve orders, manage deliveries, confirm payments</p>
+    </div>
+
+    <div id="orders-alert"></div>
+
+    <div style="display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap; align-items:center;">
+      <button class="btn btn-sm btn-outline active-filter" onclick="filterOrders('all', this)">All Orders</button>
+      <button class="btn btn-sm btn-outline" onclick="filterOrders('pending', this)">⏳ Pending</button>
+      <button class="btn btn-sm btn-outline" onclick="filterOrders('approved', this)">✅ Approved</button>
+      <button class="btn btn-sm btn-outline" onclick="filterOrders('delivered', this)">🚚 Delivered</button>
+      <button class="btn btn-sm btn-warning" onclick="bulkApprove()" style="margin-left:auto" id="bulk-approve-btn" style="display:none">⚡ Bulk Approve Selected</button>
+    </div>
+
+    <div class="card">
+      <div id="orders-table"><div class="empty-state">⏳<p>Loading orders...</p></div></div>
+    </div>
+  </div>
+
+  <!-- VENDORS PAGE -->
+  <div class="page" id="page-vendors">
+    <div class="page-header">
+      <h1>👥 Vendor Management</h1>
+      <p>Set credit limits, view balances, block/unblock vendors</p>
+    </div>
+    <div class="card">
+      <div id="vendors-table"><div class="empty-state">⏳<p>Loading vendors...</p></div></div>
+    </div>
+  </div>
+
+  <!-- LEDGER PAGE -->
+  <div class="page" id="page-ledger">
+    <div class="page-header">
+      <h1>📒 Outstanding Ledger</h1>
+      <p>All unpaid and partial orders — collect or chase payments here</p>
+    </div>
+    <div class="card">
+      <div id="ledger-table"><div class="empty-state">⏳<p>Loading...</p></div></div>
+    </div>
+  </div>
+
+  <!-- NEW ORDER PAGE (Admin creates order for vendor) -->
+  <div class="page" id="page-new-order">
+    <div class="page-header">
+      <h1>➕ Create Order</h1>
+      <p>Place an order on behalf of a vendor or walk-in customer</p>
+    </div>
+
+    <div id="order-alert"></div>
+
+    <div class="card">
+      <div class="card-title">Order Details</div>
+      <div class="form-group">
+        <label>Customer Type</label>
+        <select id="cust-type" onchange="toggleVendorSelect()">
+          <option value="vendor">Registered Vendor</option>
+          <option value="walkin">Walk-in Customer</option>
+        </select>
+      </div>
+      <div class="form-group" id="vendor-select-group">
+        <label>Select Vendor</label>
+        <select id="order-vendor">
+          <option value="">Loading vendors...</option>
+        </select>
+      </div>
+      <div class="form-group" id="walkin-name-group" style="display:none">
+        <label>Customer Name / Description</label>
+        <input type="text" id="walkin-name" placeholder="e.g. Walk-in, Market Road" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Number of Bags</label>
+          <input type="number" id="order-bags" placeholder="e.g. 50" min="1" oninput="calcOrderTotal()" />
+        </div>
+        <div class="form-group">
+          <label>Payment Method</label>
+          <select id="order-payment" onchange="calcOrderTotal()">
+            <option value="cash">Cash</option>
+            <option value="transfer">Bank Transfer</option>
+            <option value="credit">Credit / Pay Later</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Amount Paid (₦) — leave 0 for full credit</label>
+        <input type="number" id="order-paid" placeholder="e.g. 10000" value="0" oninput="calcOrderTotal()" />
+      </div>
+      <div style="background:var(--dark2); border-radius:10px; padding:16px; margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+          <span style="color:var(--muted);font-size:13px;">Price per bag</span>
+          <span id="ot-price" style="font-size:13px;">₦—</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+          <span style="color:var(--muted);font-size:13px;">Total Amount</span>
+          <span id="ot-total" style="font-family:Syne,sans-serif;font-weight:800;">₦—</span>
+        </div>
+        <div style="display:flex; justify-content:space-between;">
+          <span style="color:var(--muted);font-size:13px;">Outstanding Balance</span>
+          <span id="ot-outstanding" style="color:var(--warning);font-weight:600;">₦—</span>
+        </div>
+      </div>
+      <button class="btn" onclick="createOrder()">📦 Create & Approve Order</button>
+    </div>
+  </div>
+
+
+  <!-- CASHIER FLOATS PAGE -->
+  <div class="page" id="page-cashier">
+    <div class="page-header">
+      <h1>💰 Cashier Float Requests</h1>
+      <p>Review and approve bag allocations for cashiers</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Today's Float Requests</div>
+      <div id="cashier-float-table"><div class="empty-state">⏳<p>Loading...</p></div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Active Floats — End of Day Summary</div>
+      <div id="cashier-summary-table"><div class="empty-state">⏳<p>Loading...</p></div></div>
+    </div>
+  </div>
+
+  <!-- TRANSFER CONFIRMATION PAGE -->
+  <div class="page" id="page-transfers">
+    <div class="page-header">
+      <h1>🏦 Bank Transfer Confirmations</h1>
+      <p>Verify incoming transfers and confirm payments for vendor orders</p>
+    </div>
+    <div id="transfer-alert"></div>
+    <div class="card">
+      <div class="card-title">
+        Pending Transfer Payments
+        <span id="transfer-pending-count" style="background:rgba(255,183,0,0.15);color:var(--warning);border-radius:20px;padding:3px 12px;font-size:12px;font-family:'DM Sans',sans-serif;font-weight:400;">0 pending</span>
+      </div>
+      <div id="transfer-pending-table"><div class="empty-state">⏳<p>Loading...</p></div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Recently Confirmed Transfers</div>
+      <div id="transfer-confirmed-table"><div class="empty-state">⏳<p>Loading...</p></div></div>
+    </div>
+  </div>
+
+  <!-- BAG FLOW / CONSUMPTION PAGE -->
+  <div class="page" id="page-consumption">
+    <div class="page-header">
+      <h1>📈 Bag Flow Report</h1>
+      <p>Live breakdown of where today's bags went</p>
+    </div>
+    <div class="card" style="padding:16px 20px;">
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+        <div>
+          <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:6px;">Select Date</label>
+          <input type="date" id="cons-date" style="width:180px;" oninput="loadConsumption()" />
+        </div>
+        <div style="margin-top:20px;"><button class="btn btn-sm" onclick="loadConsumption()">🔄 Refresh</button></div>
+      </div>
+    </div>
+    <div class="stats-grid" id="cons-stats">
+      <div class="stat-card blue"><div class="stat-label">Produced</div><div class="stat-value" id="cons-produced">—</div><div class="stat-sub">Today's batch</div></div>
+      <div class="stat-card green"><div class="stat-label">Vendor Orders</div><div class="stat-value" id="cons-vendor">—</div><div class="stat-sub">Bags dispatched to vendors</div></div>
+      <div class="stat-card yellow"><div class="stat-label">Cashier Float</div><div class="stat-value" id="cons-cashier">—</div><div class="stat-sub">Allocated to cashiers</div></div>
+      <div class="stat-card red"><div class="stat-label">Burst Loss</div><div class="stat-value" id="cons-burst">—</div><div class="stat-sub">Sachets ÷ 20 (not replaced)</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Flow Breakdown</div>
+      <div id="cons-bar-wrap" style="margin-bottom:20px"></div>
+      <div id="cons-detail"><div class="empty-state">⏳<p>Loading...</p></div></div>
+    </div>
+  </div>
+
+  <!-- BURST REPORTS PAGE -->
+  <div class="page" id="page-burst">
+    <div class="page-header">
+      <h1>💥 Burst Reports</h1>
+      <p>All burst sachets reported by drivers — factory losses &amp; replacement tracking</p>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card red">
+        <div class="stat-label">Total Burst Sachets</div>
+        <div class="stat-value" id="burst-stat-sachets">—</div>
+        <div class="stat-sub">Across all deliveries</div>
+      </div>
+      <div class="stat-card yellow">
+        <div class="stat-label">Not Replaced (Loss)</div>
+        <div class="stat-value" id="burst-stat-loss">—</div>
+        <div class="stat-sub">Factory bears cost</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Replaced by Driver</div>
+        <div class="stat-value" id="burst-stat-replaced">—</div>
+        <div class="stat-sub">Swapped on the spot</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-label">Deliveries Affected</div>
+        <div class="stat-value" id="burst-stat-orders">—</div>
+        <div class="stat-sub">Orders with burst report</div>
+      </div>
+    </div>
+
+    <div class="card" style="padding:16px 20px;">
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+        <div>
+          <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;display:block;margin-bottom:6px;">Filter by Date</label>
+          <input type="date" id="burst-filter-date" style="width:180px;" oninput="loadBurstReports()" />
+        </div>
+        <div style="margin-top:20px;">
+          <button class="btn btn-sm btn-outline" onclick="document.getElementById('burst-filter-date').value='';loadBurstReports()">Show All</button>
+        </div>
+        <div style="margin-top:20px;margin-left:auto;">
+          <button class="btn btn-sm" onclick="loadBurstReports()">🔄 Refresh</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        Burst Detail Log
+        <span id="burst-count-badge" style="background:rgba(255,68,85,0.15);color:var(--danger);border-radius:20px;padding:3px 12px;font-size:12px;font-family:'DM Sans',sans-serif;font-weight:400;">0 records</span>
+      </div>
+      <div id="burst-reports-table"><div class="empty-state">⏳<p>Loading...</p></div></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+(function(){
+  let _q = [], _ready = false
+  window.showPage = function(name) {
+    if (_ready) return window._realShowPage(name)
+    _q.push(name)
+  }
+  window._registerShowPage = function(fn) {
+    window._realShowPage = fn; _ready = true
+    _q.forEach(n => fn(n)); _q = []
+  }
+})()
+</script>
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+const sb = createClient(
+  'https://jiwbifgdzxbtludusctf.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imppd2JpZmdkenhidGx1ZHVzY3RmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2ODUyNDMsImV4cCI6MjA5NjI2MTI0M30.iIlsTnHgZLGq2-EvbJAcTl6WcjmqM3gi5cjnNykjOYs'
+)
+
+// AUTH GUARD + session expiry
+const _raw = localStorage.getItem('pf_user')
+let user = null
+try { user = JSON.parse(_raw) } catch(e) {}
+if (!user || user.role !== 'admin') window.location.href = 'index.html'
+if (user._expires && Date.now() > user._expires) { localStorage.removeItem('pf_user'); window.location.href = 'index.html' }
+// Refresh session on activity
+function touchSession() { if(user){ user._expires = Date.now() + 8*60*60*1000; localStorage.setItem('pf_user', JSON.stringify(user)) } }
+document.addEventListener('click', (e) => { if (!e.target.closest('.logout-btn')) touchSession() })
+document.getElementById('admin-name').textContent = user?.full_name || 'Admin'
+document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-NG', {weekday:'long', year:'numeric', month:'long', day:'numeric'})
+document.getElementById('prod-date').value = new Date().toISOString().split('T')[0]
+
+// STATE
+let todayProduction = null
+let allOrders = []
+let vendors = []
+
+// NAVIGATION
+const _showPageImpl = (name) => {
+  const pageEl = document.getElementById('page-' + name)
+  if (!pageEl) return
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'))
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'))
+  pageEl.classList.add('active')
+  // Highlight matching nav item without relying on event
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick') && n.getAttribute('onclick').includes("'" + name + "'")) n.classList.add('active')
+  })
+  location.hash = name
+
+  if (name === 'overview') loadOverview()
+  if (name === 'orders') loadOrders()
+  if (name === 'production') loadProductionHistory()
+  if (name === 'vendors') loadVendors()
+  if (name === 'ledger') loadLedger()
+  if (name === 'new-order') loadVendorDropdown()
+  if (name === 'cashier') loadCashierFloats()
+  if (name === 'burst') loadBurstReports()
+  if (name === 'transfers') loadTransfers()
+  if (name === 'consumption') loadConsumption()
+}
+window._registerShowPage(_showPageImpl)
+
+window.logout = () => { localStorage.removeItem('pf_user'); window.location.href = 'index.html' }
+
+// LOAD OVERVIEW
+async function loadOverview() {
+  const today = new Date().toISOString().split('T')[0]
+  const { data: prod } = await sb.from('daily_production').select('*').eq('date', today).single()
+  todayProduction = prod
+
+  if (prod) {
+    document.getElementById('stat-bags').textContent = prod.total_bags + ' bags'
+    document.getElementById('stat-available').textContent = prod.available_bags + ' remaining'
+  } else {
+    document.getElementById('stat-bags').textContent = 'Not logged'
+    document.getElementById('stat-available').textContent = 'Log production first'
+  }
+
+  const todayStart = today + 'T00:00:00'
+  const todayEnd = today + 'T23:59:59'
+  const { data: orders } = await sb.from('orders').select('*, users(full_name)')
+    .gte('created_at', todayStart).lte('created_at', todayEnd)
+    .order('created_at', {ascending: false})
+  allOrders = orders || []
+
+  let collected = 0, debt = 0, dispatched = 0
+  let totalBurstSachets = 0, totalNotReplaced = 0
+  allOrders.forEach(o => {
+    if (o.payment_status === 'paid') collected += o.total_amount
+    else if (o.payment_status === 'partial') { collected += o.amount_paid; debt += (o.total_amount - o.amount_paid) }
+    else debt += o.total_amount
+    dispatched += o.bags_ordered
+    totalBurstSachets += o.burst_sachets || 0
+    totalNotReplaced += o.burst_not_replaced || 0
+  })
+
+  document.getElementById('stat-collected').textContent = '₦' + collected.toLocaleString()
+  document.getElementById('stat-debt').textContent = '₦' + debt.toLocaleString()
+  document.getElementById('stat-losses').textContent = totalNotReplaced + ' sachets'
+  document.getElementById('stat-losses-sub').textContent = totalBurstSachets > 0
+    ? `${totalBurstSachets} burst, ${totalNotReplaced} not replaced`
+    : 'No burst reported today'
+
+  if (prod) {
+    const used = prod.total_bags - prod.available_bags
+    document.getElementById('inv-used').textContent = used + ' / ' + prod.total_bags
+    document.getElementById('inv-bar').style.width = Math.min(100, (used / prod.total_bags) * 100) + '%'
+  }
+
+  renderRecentOrders(allOrders.slice(0, 5))
+
+  // Check pending transfers for badge
+  const { data: pendingTx } = await sb.from('orders').select('id').eq('payment_method','transfer').eq('payment_status','pending_confirmation')
+  const txBadge = document.getElementById('transfer-badge')
+  if (txBadge) { txBadge.style.display = (pendingTx?.length||0) > 0 ? 'inline' : 'none'; txBadge.textContent = pendingTx?.length||0 }
+}
+
+function renderRecentOrders(orders) {
+  if (!orders.length) {
+    document.getElementById('recent-orders-table').innerHTML = '<div class="empty-state">📭<p>No orders today yet</p></div>'
+    return
+  }
+  let html = '<table><thead><tr><th>Vendor</th><th>Bags</th><th>Amount</th><th>Payment</th><th>Status</th></tr></thead><tbody>'
+  orders.forEach(o => {
+    html += `<tr>
+      <td>${o.is_walkin ? '🚶 Walk-in' : (o.users?.full_name || '—')}</td>
+      <td>${o.bags_ordered}</td>
+      <td>₦${o.total_amount.toLocaleString()}</td>
+      <td><span class="badge badge-${o.payment_status}">${o.payment_status}</span></td>
+      <td><span class="badge badge-${o.order_status}">${o.order_status}</span></td>
+    </tr>`
+  })
+  html += '</tbody></table>'
+  document.getElementById('recent-orders-table').innerHTML = html
+}
+
+// PRODUCTION
+window.logProduction = async () => {
+  const total = parseInt(document.getElementById('prod-total').value)
+  const wastage = parseInt(document.getElementById('prod-wastage').value) || 0
+  const price = parseFloat(document.getElementById('prod-price').value)
+  const date = document.getElementById('prod-date').value
+  const alertEl = document.getElementById('prod-alert')
+
+  if (!total || !price || !date) { showAlert('prod-alert', 'error', 'Please fill all required fields'); return }
+
+  const available = total - wastage
+  const btn = document.querySelector('#page-production .btn')
+  btn.innerHTML = '<span class="spinner"></span>Logging...'
+  btn.disabled = true
+
+  const { error } = await sb.from('daily_production').upsert({
+    date, total_bags: total, wastage_bags: wastage,
+    available_bags: available, price_per_bag: price, logged_by: user.id
+  }, { onConflict: 'date' })
+
+  btn.innerHTML = '✅ Log Production Batch'
+  btn.disabled = false
+
+  if (error) { showAlert('prod-alert', 'error', 'Failed: ' + error.message); return }
+  showAlert('prod-alert', 'success', `✅ ${available} bags logged at ₦${price}/bag. Total value: ₦${(available*price).toLocaleString()}`)
+  loadProductionHistory()
+}
+
+// Preview calc
+document.getElementById('prod-total')?.addEventListener('input', updateProdPreview)
+document.getElementById('prod-wastage')?.addEventListener('input', updateProdPreview)
+document.getElementById('prod-price')?.addEventListener('input', updateProdPreview)
+
+function updateProdPreview() {
+  const total = parseInt(document.getElementById('prod-total').value) || 0
+  const wastage = parseInt(document.getElementById('prod-wastage').value) || 0
+  const price = parseFloat(document.getElementById('prod-price').value) || 0
+  const available = total - wastage
+  document.getElementById('prev-available').textContent = available + ' bags'
+  document.getElementById('prev-value').textContent = '₦' + (available * price).toLocaleString()
+}
+
+async function loadProductionHistory() {
+  const { data } = await sb.from('daily_production').select('*').order('date', {ascending:false}).limit(10)
+  if (!data?.length) { document.getElementById('prod-history').innerHTML = '<div class="empty-state">📭<p>No production records yet</p></div>'; return }
+  let html = '<table><thead><tr><th>Date</th><th>Total</th><th>Wastage</th><th>Available</th><th>Price/Bag</th><th>Value</th></tr></thead><tbody>'
+  data.forEach(p => {
+    html += `<tr>
+      <td>${new Date(p.date).toLocaleDateString('en-NG')}</td>
+      <td>${p.total_bags}</td>
+      <td style="color:var(--danger)">${p.wastage_bags}</td>
+      <td style="color:var(--success)">${p.available_bags}</td>
+      <td>₦${p.price_per_bag}</td>
+      <td style="font-weight:600">₦${(p.available_bags * p.price_per_bag).toLocaleString()}</td>
+    </tr>`
+  })
+  html += '</tbody></table>'
+  document.getElementById('prod-history').innerHTML = html
+}
+
+// ORDERS
+let currentFilter = 'all'
+window.filterOrders = (f, btn) => {
+  currentFilter = f
+  document.querySelectorAll('.active-filter').forEach(b => b.classList.remove('active-filter'))
+  btn.classList.add('active-filter')
+  renderOrders()
+}
+
+async function loadOrders() {
+  // Fetch orders + vendor info first (safe join)
+  const { data, error } = await sb.from('orders')
+    .select('*, users(full_name, phone)')
+    .order('created_at', {ascending:false})
+
+  if (error) {
+    document.getElementById('orders-table').innerHTML = `<div class="empty-state">❌<p>Failed to load orders: ${error.message}</p></div>`
+    return
+  }
+
+  const orders = data || []
+
+  // Separately fetch driver names for assigned orders (avoids FK alias issues)
+  const driverIds = [...new Set(orders.map(o => o.assigned_driver_id).filter(Boolean))]
+  let driverMap = {}
+  if (driverIds.length) {
+    const { data: drivers } = await sb.from('users').select('id, full_name').in('id', driverIds)
+    ;(drivers || []).forEach(d => { driverMap[d.id] = d.full_name })
+  }
+
+  allOrders = orders.map(o => ({
+    ...o,
+    assigned_driver_name: o.assigned_driver_id ? (driverMap[o.assigned_driver_id] || null) : null
+  }))
+  renderOrders()
+}
+
+function renderOrders() {
+  let filtered = allOrders
+  if (currentFilter !== 'all') filtered = allOrders.filter(o => o.order_status === currentFilter)
+
+  if (!filtered.length) { document.getElementById('orders-table').innerHTML = '<div class="empty-state">📭<p>No orders found</p></div>'; return }
+
+  const hasPending = filtered.some(o => o.order_status === 'pending')
+  const bulkBtn = document.getElementById('bulk-approve-btn')
+  if (bulkBtn) bulkBtn.style.display = hasPending ? 'inline-block' : 'none'
+
+  let html = `<table><thead><tr>
+    ${hasPending ? '<th><input type="checkbox" id="check-all" onchange="toggleAllChecks(this)" /></th>' : '<th></th>'}
+    <th>Vendor</th><th>Bags</th><th>Amount</th><th>Paid</th><th>Method</th><th>Payment</th><th>Status</th><th>Driver</th><th>Action</th>
+  </tr></thead><tbody>`
+
+  filtered.forEach(o => {
+    const outstanding = o.total_amount - o.amount_paid
+    const driverLabel = o.assigned_driver_name
+      ? `<span style="font-size:12px;color:var(--cyan)">🚚 ${o.assigned_driver_name}</span>`
+      : `<span style="font-size:12px;color:var(--muted)">Unassigned</span>`
+
+    const otpExpired = o.otp_expires_at && new Date(o.otp_expires_at) < new Date()
+    const otpStatus = o.order_status === 'approved'
+      ? `<div style="font-size:11px;margin-top:3px;color:${otpExpired?'var(--danger)':'var(--muted)'}">OTP: ${otpExpired?'Expired':'Active'}</div>`
+      : ''
+
+    html += `<tr>
+      <td>${o.order_status === 'pending' ? `<input type="checkbox" class="order-check" value="${o.id}" onchange="updateBulkBtn()" />` : ''}</td>
+      <td>
+        <div style="font-weight:500">${o.is_walkin ? '🚶 Walk-in' : (o.users?.full_name || '—')}</div>
+        ${o.users?.phone ? `<div style="font-size:11px;color:var(--muted)">${o.users.phone}</div>` : ''}
+      </td>
+      <td>${o.bags_ordered}</td>
+      <td>₦${o.total_amount.toLocaleString()}</td>
+      <td style="color:${outstanding>0?'var(--warning)':'var(--success)'}">₦${o.amount_paid.toLocaleString()}${outstanding>0?`<div style="font-size:11px">owes ₦${outstanding.toLocaleString()}</div>`:''}</td>
+      <td style="text-transform:capitalize">${o.payment_method}</td>
+      <td><span class="badge badge-${o.payment_status}">${o.payment_status}</span></td>
+      <td><span class="badge badge-${o.order_status}">${o.order_status}</span>${otpStatus}</td>
+      <td>${driverLabel}</td>
+      <td style="display:flex;gap:4px;flex-wrap:wrap;min-width:160px">
+        ${o.order_status==='pending' ? `<button class="btn btn-sm btn-success" onclick="approveOrder('${o.id}')">✅ Approve</button>` : ''}
+        ${o.order_status==='approved' ? `<button class="btn btn-sm btn-warning" onclick="markDelivered('${o.id}')">🚚 Delivered</button>` : ''}
+        ${o.order_status==='approved' ? `<button class="btn btn-sm btn-outline" onclick="regenOtp('${o.id}')" style="font-size:11px">🔑 New OTP</button>` : ''}
+        ${o.payment_status!=='paid' ? `<button class="btn btn-sm" onclick="markPaid('${o.id}')">💰 Paid</button>` : ''}
+      </td>
+    </tr>`
+  })
+  html += '</tbody></table>'
+  document.getElementById('orders-table').innerHTML = html
+}
+
+window.toggleAllChecks = (master) => {
+  document.querySelectorAll('.order-check').forEach(c => c.checked = master.checked)
+  updateBulkBtn()
+}
+window.updateBulkBtn = () => {
+  const any = document.querySelectorAll('.order-check:checked').length > 0
+  const btn = document.getElementById('bulk-approve-btn')
+  if (btn) btn.style.display = any ? 'inline-block' : (currentFilter === 'pending' || currentFilter === 'all' ? 'inline-block' : 'none')
+}
+
+window.bulkApprove = async () => {
+  const checked = [...document.querySelectorAll('.order-check:checked')].map(c => c.value)
+  if (!checked.length) { showAlert('orders-alert','error','Select at least one pending order'); return }
+  if (!confirm(`Bulk approve ${checked.length} orders?`)) return
+
+  const today = new Date().toISOString().split('T')[0]
+  let { data: prod } = await sb.from('daily_production').select('*').eq('date', today).single()
+  if (!prod) { showAlert('orders-alert','error','No production logged today'); return }
+
+  let approved = 0, failed = 0
+  for (const id of checked) {
+    const order = allOrders.find(o => o.id === id)
+    if (!order || order.order_status !== 'pending') continue
+    if (prod.available_bags < order.bags_ordered) { failed++; continue }
+    const otp = String(Math.floor(1000 + Math.random() * 9000))
+    const otpExpiry = new Date(Date.now() + 24*60*60*1000).toISOString()
+    await sb.from('orders').update({ order_status: 'approved', delivery_otp: otp, otp_expires_at: otpExpiry }).eq('id', id)
+    await sb.from('daily_production').update({ available_bags: prod.available_bags - order.bags_ordered }).eq('date', today).gte('available_bags', order.bags_ordered)
+    prod.available_bags -= order.bags_ordered
+    approved++
+  }
+  showAlert('orders-alert','success',`✅ ${approved} approved${failed>0?`, ${failed} skipped (not enough stock)`:''}`)
+  loadOrders()
+}
+
+window.approveOrder = async (id) => {
+  const order = allOrders.find(o => o.id === id)
+  if (!order) return
+
+  // Load available drivers for assignment
+  const { data: drivers } = await sb.from('users').select('id, full_name, phone').eq('role', 'driver').order('full_name')
+
+  let driverAssignment = ''
+  if (drivers?.length) {
+    const opts = drivers.map(d => `<option value="${d.id}">${d.full_name} (${d.phone})</option>`).join('')
+    driverAssignment = `<div style="margin-top:10px"><label style="font-size:12px;color:#666">Assign Driver (optional)</label>
+      <select id="approve-driver-sel" style="width:100%;margin-top:4px;padding:8px;border-radius:6px;background:#1a2535;color:#eee;border:1px solid #234">
+        <option value="">-- No specific driver --</option>${opts}
+      </select></div>`
+  }
+
+  // Show confirm dialog with driver selection
+  const confirmed = await new Promise(resolve => {
+    const overlay = document.createElement('div')
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px'
+    overlay.innerHTML = `<div style="background:#111C2D;border:1px solid rgba(0,87,255,0.2);border-radius:16px;padding:24px;max-width:400px;width:100%">
+      <h3 style="font-family:Syne,sans-serif;margin-bottom:12px">✅ Approve Order</h3>
+      <p style="color:#6B7FA3;font-size:14px">Approve <strong style="color:#E8F0FF">${order.bags_ordered} bags</strong> for <strong style="color:#E8F0FF">${order.is_walkin ? 'Walk-in' : (order.users?.full_name || 'Vendor')}</strong>?</p>
+      ${driverAssignment}
+      <div style="display:flex;gap:10px;margin-top:20px">
+        <button id="approve-cancel" style="flex:1;padding:10px;background:transparent;border:1px solid rgba(0,87,255,0.2);border-radius:8px;color:#6B7FA3;cursor:pointer">Cancel</button>
+        <button id="approve-confirm" style="flex:1;padding:10px;background:linear-gradient(135deg,#00E5A0,#00b87a);border:none;border-radius:8px;color:#000;font-weight:700;cursor:pointer">Approve & Assign</button>
+      </div>
+    </div>`
+    document.body.appendChild(overlay)
+    overlay.querySelector('#approve-cancel').onclick = () => { document.body.removeChild(overlay); resolve(null) }
+    overlay.querySelector('#approve-confirm').onclick = () => {
+      const dId = overlay.querySelector('#approve-driver-sel')?.value || null
+      document.body.removeChild(overlay); resolve(dId !== '' ? dId : null)
+    }
+  })
+  if (confirmed === undefined) return // cancelled (null means no driver = ok)
+
+  // Check inventory
+  const today = new Date().toISOString().split('T')[0]
+  const { data: prod } = await sb.from('daily_production').select('*').eq('date', today).single()
+  if (!prod) { alert('No production logged for today. Log production first.'); return }
+  if (prod.available_bags < order.bags_ordered) { alert(`Not enough bags! Available: ${prod.available_bags}, Ordered: ${order.bags_ordered}`); return }
+
+  const otp = String(Math.floor(1000 + Math.random() * 9000))
+  const otpExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+
+  const updateData = { order_status: 'approved', delivery_otp: otp, otp_expires_at: otpExpiry }
+  if (confirmed) updateData.assigned_driver_id = confirmed
+
+  await sb.from('orders').update(updateData).eq('id', id)
+  // Atomic-safe: deduct only if still available (re-fetch before update)
+  await sb.from('daily_production').update({ available_bags: prod.available_bags - order.bags_ordered }).eq('date', today).gte('available_bags', order.bags_ordered)
+  loadOrders()
+}
+
+window.regenOtp = async (id) => {
+  const otp = String(Math.floor(1000 + Math.random() * 9000))
+  const otpExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+  await sb.from('orders').update({ delivery_otp: otp, otp_expires_at: otpExpiry }).eq('id', id)
+  showAlert('orders-alert', 'success', `✅ New OTP generated for order`)
+  loadOrders()
+}
+
+window.markDelivered = async (id) => {
+  await sb.from('orders').update({ order_status: 'delivered' }).eq('id', id)
+  // Burst reconciliation: deduct unreplaced sachets from inventory (as bag fractions recorded at delivery)
+  const order = allOrders.find(o => o.id === id)
+  if (order?.burst_not_replaced > 0) {
+    const today = new Date().toISOString().split('T')[0]
+    const bagLoss = Math.ceil(order.burst_not_replaced / 20)
+    const { data: prod } = await sb.from('daily_production').select('*').eq('date', today).single()
+    if (prod && prod.available_bags >= bagLoss) {
+      await sb.from('daily_production').update({ available_bags: prod.available_bags - bagLoss, wastage_bags: (prod.wastage_bags||0) + bagLoss }).eq('date', today)
+    }
+  }
+  loadOrders()
+}
+
+window.markPaid = async (id) => {
+  const order = allOrders.find(o => o.id === id)
+  if (!order) return
+  await sb.from('orders').update({ payment_status: 'paid', amount_paid: order.total_amount }).eq('id', id)
+  loadOrders()
+}
+
+// VENDORS
+async function loadVendors() {
+  const { data } = await sb.from('users').select('*').eq('role', 'vendor').order('full_name')
+  vendors = data || []
+  if (!vendors.length) { document.getElementById('vendors-table').innerHTML = '<div class="empty-state">👥<p>No vendors registered yet</p></div>'; return }
+  let html = '<table><thead><tr><th>Name</th><th>Phone</th><th>Credit Limit</th><th>Total Debt</th><th>Status</th><th>Action</th></tr></thead><tbody>'
+  vendors.forEach(v => {
+    html += `<tr>
+      <td style="font-weight:500">${v.full_name}</td>
+      <td>${v.phone}</td>
+      <td>₦${(v.credit_limit||0).toLocaleString()}</td>
+      <td style="color:${v.total_debt>0?'var(--warning)':'var(--success)'}">₦${(v.total_debt||0).toLocaleString()}</td>
+      <td><span class="badge ${v.is_blocked?'badge-unpaid':'badge-delivered'}">${v.is_blocked?'Blocked':'Active'}</span></td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-outline" onclick="setCreditLimit('${v.id}', ${v.credit_limit||0})">💳 Credit</button>
+        <button class="btn btn-sm ${v.is_blocked?'btn-success':'btn-danger'}" onclick="toggleBlock('${v.id}', ${v.is_blocked})">${v.is_blocked?'Unblock':'Block'}</button>
+      </td>
+    </tr>`
+  })
+  html += '</tbody></table>'
+  document.getElementById('vendors-table').innerHTML = html
+}
+
+window.setCreditLimit = async (id, current) => {
+  const limit = prompt(`Set credit limit for vendor (current: ₦${current.toLocaleString()}):`, current)
+  if (limit === null) return
+  await sb.from('users').update({ credit_limit: parseFloat(limit) }).eq('id', id)
+  loadVendors()
+}
+
+window.toggleBlock = async (id, blocked) => {
+  await sb.from('users').update({ is_blocked: !blocked }).eq('id', id)
+  loadVendors()
+}
+
+// LEDGER
+async function loadLedger() {
+  const { data } = await sb.from('orders').select('*, users(full_name, phone)').neq('payment_status', 'paid').order('created_at', {ascending:false})
+  if (!data?.length) { document.getElementById('ledger-table').innerHTML = '<div class="empty-state">✅<p>No outstanding balances!</p></div>'; return }
+  let total = 0
+  let html = '<table><thead><tr><th>Vendor</th><th>Order Date</th><th>Bags</th><th>Total</th><th>Paid</th><th>Outstanding</th><th>Action</th></tr></thead><tbody>'
+  data.forEach(o => {
+    const outstanding = o.total_amount - o.amount_paid
+    total += outstanding
+    html += `<tr>
+      <td>
+        <div style="font-weight:500">${o.is_walkin?'Walk-in':(o.users?.full_name||'—')}</div>
+        ${o.users?.phone?`<div style="font-size:11px;color:var(--muted)">${o.users.phone}</div>`:''}
+      </td>
+      <td style="font-size:13px;color:var(--muted)">${new Date(o.created_at).toLocaleDateString('en-NG')}</td>
+      <td>${o.bags_ordered}</td>
+      <td>₦${o.total_amount.toLocaleString()}</td>
+      <td style="color:var(--success)">₦${o.amount_paid.toLocaleString()}</td>
+      <td style="color:var(--warning);font-weight:700">₦${outstanding.toLocaleString()}</td>
+      <td><button class="btn btn-sm btn-success" onclick="markPaid('${o.id}')">💰 Collect</button></td>
+    </tr>`
+  })
+  html += `</tbody><tfoot><tr><td colspan="5" style="font-weight:700;padding:16px 12px;border-top:1px solid var(--border)">TOTAL OUTSTANDING</td><td colspan="2" style="font-family:Syne,sans-serif;font-size:18px;font-weight:800;color:var(--warning);padding:16px 12px;border-top:1px solid var(--border)">₦${total.toLocaleString()}</td></tr></tfoot></table>`
+  document.getElementById('ledger-table').innerHTML = html
+}
+
+// NEW ORDER
+async function loadVendorDropdown() {
+  const { data } = await sb.from('users').select('id, full_name, phone').eq('role', 'vendor').order('full_name')
+  vendors = data || []
+  const sel = document.getElementById('order-vendor')
+  sel.innerHTML = data.map(v => `<option value="${v.id}">${v.full_name} (${v.phone})</option>`).join('')
+  calcOrderTotal()
+}
+
+window.toggleVendorSelect = () => {
+  const isWalkin = document.getElementById('cust-type').value === 'walkin'
+  document.getElementById('vendor-select-group').style.display = isWalkin ? 'none' : 'block'
+  document.getElementById('walkin-name-group').style.display = isWalkin ? 'block' : 'none'
+}
+
+window.calcOrderTotal = () => {
+  const bags = parseInt(document.getElementById('order-bags')?.value) || 0
+  const paid = parseFloat(document.getElementById('order-paid')?.value) || 0
+  const today = new Date().toISOString().split('T')[0]
+
+  sb.from('daily_production').select('price_per_bag').eq('date', today).single().then(({data}) => {
+    const price = data?.price_per_bag || 0
+    const total = bags * price
+    const outstanding = total - paid
+    document.getElementById('ot-price').textContent = price ? '₦' + price : 'No production today'
+    document.getElementById('ot-total').textContent = '₦' + total.toLocaleString()
+    document.getElementById('ot-outstanding').textContent = '₦' + Math.max(0, outstanding).toLocaleString()
+  })
+}
+
+
+window.createOrder = async () => {
+  const isWalkin = document.getElementById('cust-type').value === 'walkin'
+  const bags = parseInt(document.getElementById('order-bags').value)
+  const method = document.getElementById('order-payment').value
+  const paid = parseFloat(document.getElementById('order-paid').value) || 0
+  const vendorId = isWalkin ? null : (document.getElementById('order-vendor').value || null)
+
+  if (!bags) { showAlert('order-alert', 'error', 'Enter number of bags'); return }
+  if (!isWalkin && !vendorId) { showAlert('order-alert', 'error', 'No vendor selected. Use Walk-in or register a vendor first.'); return }
+
+  const today = new Date().toISOString().split('T')[0]
+  const { data: prod } = await sb.from('daily_production').select('*').eq('date', today).single()
+  if (!prod) { showAlert('order-alert', 'error', 'No production logged for today'); return }
+  if (prod.available_bags < bags) { showAlert('order-alert', 'error', `Only ${prod.available_bags} bags available`); return }
+
+  const total = bags * prod.price_per_bag
+  let payStatus = paid >= total ? 'paid' : paid > 0 ? 'partial' : 'unpaid'
+  if (method === 'transfer') payStatus = 'pending_confirmation'
+
+  const btn = document.querySelector('#page-new-order .btn')
+  btn.innerHTML = '<span class="spinner"></span>Creating...'
+  btn.disabled = true
+
+  const insertData = {
+    production_id: prod.id,
+    bags_ordered: bags,
+    price_per_bag: prod.price_per_bag,
+    total_amount: total,
+    amount_paid: paid,
+    payment_method: method,
+    payment_status: payStatus,
+    order_status: 'approved',
+    is_walkin: isWalkin
+  }
+  if (vendorId) insertData.vendor_id = vendorId
+  if (isWalkin) insertData.walkin_name = (document.getElementById('walkin-name')?.value) || 'Walk-in'
+
+  const { error } = await sb.from('orders').insert(insertData)
+  if (!error) await sb.from('daily_production').update({ available_bags: prod.available_bags - bags }).eq('date', today)
+
+  btn.innerHTML = '📦 Create & Approve Order'
+  btn.disabled = false
+
+  if (error) { showAlert('order-alert', 'error', 'Failed: ' + error.message); return }
+  showAlert('order-alert', 'success', `✅ Order created! ${bags} bags for ₦${total.toLocaleString()}`)
+  document.getElementById('order-bags').value = ''
+  document.getElementById('order-paid').value = '0'
+}
+
+// CASHIER FLOATS
+async function loadCashierFloats() {
+  const today = new Date().toISOString().split('T')[0]
+
+  // Load pending requests
+  const { data: requests } = await sb
+    .from('cashier_float')
+    .select('*, users(full_name, phone)')
+    .eq('date', today)
+    .order('created_at', {ascending: false})
+
+  // Show badge on nav if pending requests exist
+  const pending = (requests || []).filter(r => r.status === 'pending')
+  const badge = document.getElementById('float-badge')
+  if (badge) badge.style.display = pending.length > 0 ? 'inline' : 'none'
+
+  // Render requests table
+  const reqEl = document.getElementById('cashier-float-table')
+  if (!requests?.length) {
+    reqEl.innerHTML = '<div class="empty-state">📭<p>No float requests today</p></div>'
+  } else {
+    let html = '<table><thead><tr><th>Cashier</th><th>Phone</th><th>Bags Requested</th><th>Status</th><th>Action</th></tr></thead><tbody>'
+    requests.forEach(r => {
+      const isPending = r.status === 'pending'
+      html += `<tr>
+        <td style="font-weight:500">${r.users?.full_name || 'Unknown'}</td>
+        <td style="color:var(--muted)">${r.users?.phone || ''}</td>
+        <td style="font-family:Syne,sans-serif;font-weight:700;font-size:18px">${r.bags_allocated}</td>
+        <td><span class="badge ${isPending ? 'badge-partial' : 'badge-delivered'}">${r.status}</span></td>
+        <td style="display:flex;gap:6px">
+          ${isPending ? `
+            <button class="btn btn-sm btn-success" onclick="approveFloat('${r.id}', ${r.bags_allocated}, '${r.production_id}')">✅ Approve</button>
+            <button class="btn btn-sm btn-danger" onclick="rejectFloat('${r.id}')">❌ Reject</button>
+          ` : `<span style="color:var(--muted);font-size:13px">Already ${r.status}</span>`}
+        </td>
+      </tr>`
+    })
+    html += '</tbody></table>'
+    reqEl.innerHTML = html
+  }
+
+  // Render active floats summary
+  const approved = (requests || []).filter(r => r.status === 'approved')
+  const sumEl = document.getElementById('cashier-summary-table')
+  if (!approved.length) {
+    sumEl.innerHTML = '<div class="empty-state">📭<p>No approved floats yet today</p></div>'
+  } else {
+    let totalCash = 0
+    let html = '<table><thead><tr><th>Cashier</th><th>Allocated</th><th>Sold</th><th>Remaining</th><th>Cash Collected</th></tr></thead><tbody>'
+    approved.forEach(r => {
+      const remaining = r.bags_allocated - r.bags_sold
+      totalCash += r.cash_collected
+      html += `<tr>
+        <td style="font-weight:500">${r.users?.full_name || 'Unknown'}</td>
+        <td>${r.bags_allocated}</td>
+        <td style="color:var(--success)">${r.bags_sold}</td>
+        <td style="color:${remaining > 0 ? 'var(--cyan)' : 'var(--muted)'}">${remaining}</td>
+        <td style="font-family:Syne,sans-serif;font-weight:700;color:var(--success)">₦${(r.cash_collected||0).toLocaleString()}</td>
+      </tr>`
+    })
+    html += `</tbody>
+      <tfoot><tr>
+        <td colspan="4" style="font-weight:700;padding:14px 12px;border-top:1px solid var(--border)">TOTAL CASH FROM CASHIERS</td>
+        <td style="font-family:Syne,sans-serif;font-size:18px;font-weight:800;color:var(--success);padding:14px 12px;border-top:1px solid var(--border)">₦${totalCash.toLocaleString()}</td>
+      </tr></tfoot>
+    </table>`
+    sumEl.innerHTML = html
+  }
+}
+
+window.approveFloat = async (floatId, bags, productionId) => {
+  // Re-check inventory atomically at approval time (reservation happens here)
+  const today = new Date().toISOString().split('T')[0]
+  const { data: prod } = await sb.from('daily_production').select('*').eq('date', today).single()
+  if (!prod) { alert('No production logged for today'); return }
+  if (prod.available_bags < bags) {
+    alert(`Not enough bags! Available: ${prod.available_bags}, Requested: ${bags}`)
+    return
+  }
+
+  // Approve and IMMEDIATELY deduct from inventory (reservation)
+  await sb.from('cashier_float').update({ status: 'approved' }).eq('id', floatId)
+  await sb.from('daily_production').update({ available_bags: prod.available_bags - bags }).eq('date', today).gte('available_bags', bags)
+  showAlert('prod-alert', 'success', `✅ Float approved! ${bags} bags reserved for cashier.`)
+  loadCashierFloats()
+  loadOverview()
+}
+
+window.rejectFloat = async (floatId) => {
+  await sb.from('cashier_float').update({ status: 'rejected' }).eq('id', floatId)
+  loadCashierFloats()
+}
+
+function showAlert(id, type, msg) {
+  const el = document.getElementById(id)
+  el.innerHTML = `<div class="alert alert-${type==='success'?'success':'error'}">${msg}</div>`
+  setTimeout(() => { el.innerHTML = '' }, 5000)
+}
+
+// BURST REPORTS
+window.loadBurstReports = async () => {
+  const dateFilter = document.getElementById('burst-filter-date')?.value
+
+  let query = sb.from('orders')
+    .select('*, users(full_name, phone)')
+    .eq('order_status', 'delivered')
+    .gt('burst_sachets', 0)
+    .order('created_at', { ascending: false })
+
+  if (dateFilter) {
+    query = query
+      .gte('created_at', dateFilter + 'T00:00:00')
+      .lte('created_at', dateFilter + 'T23:59:59')
+  }
+
+  const { data, error } = await query
+  const records = data || []
+
+  // Compute summary stats
+  let totalSachets = 0, totalReplaced = 0, totalLoss = 0
+  records.forEach(r => {
+    totalSachets += r.burst_sachets || 0
+    totalReplaced += r.burst_replaced || 0
+    totalLoss += r.burst_not_replaced || 0
+  })
+
+  document.getElementById('burst-stat-sachets').textContent = totalSachets + ' sachets'
+  document.getElementById('burst-stat-loss').textContent = totalLoss + ' sachets'
+  document.getElementById('burst-stat-replaced').textContent = totalReplaced + ' sachets'
+  document.getElementById('burst-stat-orders').textContent = records.length
+  document.getElementById('burst-count-badge').textContent = records.length + ' record' + (records.length !== 1 ? 's' : '')
+
+  const tableEl = document.getElementById('burst-reports-table')
+
+  if (!records.length) {
+    tableEl.innerHTML = '<div class="empty-state">✅<p>No burst reports' + (dateFilter ? ' for this date' : '') + '</p></div>'
+    return
+  }
+
+  const statusLabel = { yes: '✅ All replaced', partial: '⚠️ Partial', no: '❌ None replaced' }
+  const statusColor = { yes: 'var(--success)', partial: 'var(--warning)', no: 'var(--danger)' }
+
+  let html = `<table>
+    <thead><tr>
+      <th>Date</th>
+      <th>Vendor</th>
+      <th>Bags Delivered</th>
+      <th>Burst Sachets</th>
+      <th>Replaced</th>
+      <th>Not Replaced</th>
+      <th>~Bags Lost</th>
+      <th>Status</th>
+    </tr></thead><tbody>`
+
+  records.forEach(r => {
+    const vendor = r.is_walkin ? '🚶 Walk-in' : (r.users?.full_name || '—')
+    const phone = r.users?.phone || ''
+    const burstSachets = r.burst_sachets || 0
+    const replaced = r.burst_replaced || 0
+    const notReplaced = r.burst_not_replaced || 0
+    const bagsLost = (notReplaced / 20).toFixed(2)
+    const status = r.burst_replace_status || 'no'
+    const deliveryDate = new Date(r.created_at).toLocaleDateString('en-NG', { day:'numeric', month:'short', year:'numeric' })
+
+    html += `<tr>
+      <td style="font-size:13px;color:var(--muted)">${deliveryDate}</td>
+      <td>
+        <div style="font-weight:500">${vendor}</div>
+        ${phone ? `<div style="font-size:11px;color:var(--muted)">${phone}</div>` : ''}
+      </td>
+      <td>${r.bags_delivered || r.bags_ordered}</td>
+      <td style="font-family:'Syne',sans-serif;font-weight:700;color:var(--danger)">${burstSachets}</td>
+      <td style="color:var(--success)">${replaced}</td>
+      <td style="color:${notReplaced > 0 ? 'var(--warning)' : 'var(--muted)'}; font-weight:${notReplaced > 0 ? '700' : '400'}">${notReplaced}</td>
+      <td style="color:${notReplaced > 0 ? 'var(--danger)' : 'var(--muted)'}; font-family:'Syne',sans-serif; font-size:13px;">${notReplaced > 0 ? bagsLost + ' bags' : '—'}</td>
+      <td><span style="font-size:12px;font-weight:600;color:${statusColor[status] || 'var(--muted)'}">${statusLabel[status] || status}</span></td>
+    </tr>`
+  })
+
+  // Totals row
+  const totalBagsLost = (totalLoss / 20).toFixed(2)
+  html += `</tbody>
+    <tfoot><tr>
+      <td colspan="3" style="font-weight:700;padding:14px 12px;border-top:1px solid var(--border)">TOTALS</td>
+      <td style="font-family:'Syne',sans-serif;font-weight:800;color:var(--danger);padding:14px 12px;border-top:1px solid var(--border)">${totalSachets}</td>
+      <td style="color:var(--success);font-weight:700;padding:14px 12px;border-top:1px solid var(--border)">${totalReplaced}</td>
+      <td style="color:var(--warning);font-weight:700;padding:14px 12px;border-top:1px solid var(--border)">${totalLoss}</td>
+      <td style="color:var(--danger);font-family:'Syne',sans-serif;font-weight:800;padding:14px 12px;border-top:1px solid var(--border)">${totalBagsLost} bags</td>
+      <td style="padding:14px 12px;border-top:1px solid var(--border)"></td>
+    </tr></tfoot>
+  </table>`
+
+  tableEl.innerHTML = html
+}
+
+// TRANSFER CONFIRMATIONS
+async function loadTransfers() {
+  // Pending transfers
+  const { data: pending } = await sb.from('orders')
+    .select('*, users(full_name, phone)')
+    .eq('payment_method', 'transfer')
+    .eq('payment_status', 'pending_confirmation')
+    .order('created_at', { ascending: false })
+
+  const pCount = pending?.length || 0
+  document.getElementById('transfer-pending-count').textContent = pCount + ' pending'
+  // Update nav badge
+  const badge = document.getElementById('transfer-badge')
+  if (badge) { badge.style.display = pCount > 0 ? 'inline' : 'none'; badge.textContent = pCount }
+
+  const pendingEl = document.getElementById('transfer-pending-table')
+  if (!pCount) {
+    pendingEl.innerHTML = '<div class="empty-state">✅<p>No pending transfers</p></div>'
+  } else {
+    let html = `<table><thead><tr><th>Vendor</th><th>Phone</th><th>Order Date</th><th>Bags</th><th>Total</th><th>Paid</th><th>Outstanding</th><th>Action</th></tr></thead><tbody>`
+    pending.forEach(o => {
+      const outstanding = o.total_amount - o.amount_paid
+      html += `<tr>
+        <td style="font-weight:500">${o.is_walkin?'Walk-in':(o.users?.full_name||'—')}</td>
+        <td style="color:var(--muted)">${o.users?.phone||'—'}</td>
+        <td style="font-size:13px;color:var(--muted)">${new Date(o.created_at).toLocaleDateString('en-NG')}</td>
+        <td>${o.bags_ordered}</td>
+        <td>₦${o.total_amount.toLocaleString()}</td>
+        <td style="color:var(--success)">₦${o.amount_paid.toLocaleString()}</td>
+        <td style="color:${outstanding>0?'var(--warning)':'var(--success)'};font-weight:700">₦${outstanding.toLocaleString()}</td>
+        <td style="display:flex;gap:6px">
+          <button class="btn btn-sm btn-success" onclick="confirmTransfer('${o.id}',${o.total_amount})">✅ Confirm Full</button>
+          <button class="btn btn-sm btn-outline" onclick="confirmPartialTransfer('${o.id}')">⚠️ Partial</button>
+        </td>
+      </tr>`
+    })
+    html += '</tbody></table>'
+    pendingEl.innerHTML = html
+  }
+
+  // Confirmed transfers
+  const { data: confirmed } = await sb.from('orders')
+    .select('*, users(full_name, phone)')
+    .eq('payment_method', 'transfer')
+    .neq('payment_status', 'pending_confirmation')
+    .order('created_at', { ascending: false })
+    .limit(20)
+
+  const confirmedEl = document.getElementById('transfer-confirmed-table')
+  if (!confirmed?.length) {
+    confirmedEl.innerHTML = '<div class="empty-state">📭<p>No confirmed transfers yet</p></div>'
+  } else {
+    let html = `<table><thead><tr><th>Vendor</th><th>Date</th><th>Amount</th><th>Status</th></tr></thead><tbody>`
+    confirmed.forEach(o => {
+      html += `<tr>
+        <td>${o.is_walkin?'Walk-in':(o.users?.full_name||'—')}</td>
+        <td style="font-size:13px;color:var(--muted)">${new Date(o.created_at).toLocaleDateString('en-NG')}</td>
+        <td>₦${o.total_amount.toLocaleString()}</td>
+        <td><span class="badge badge-${o.payment_status}">${o.payment_status}</span></td>
+      </tr>`
+    })
+    html += '</tbody></table>'
+    confirmedEl.innerHTML = html
+  }
+}
+
+window.confirmTransfer = async (id, total) => {
+  await sb.from('orders').update({ payment_status: 'paid', amount_paid: total }).eq('id', id)
+  showAlert('transfer-alert', 'success', '✅ Transfer confirmed — order marked as paid')
+  loadTransfers()
+}
+
+window.confirmPartialTransfer = async (id) => {
+  const amt = parseFloat(prompt('Enter amount actually received (₦):'))
+  if (!amt || isNaN(amt)) return
+  const order = allOrders.find(o => o.id === id)
+  const newPaid = (order?.amount_paid || 0) + amt
+  const total = order?.total_amount || 0
+  const status = newPaid >= total ? 'paid' : 'partial'
+  await sb.from('orders').update({ payment_status: status, amount_paid: newPaid }).eq('id', id)
+  showAlert('transfer-alert', 'success', `✅ ₦${amt.toLocaleString()} confirmed. Status: ${status}`)
+  loadTransfers()
+}
+
+// BAG FLOW / CONSUMPTION REPORT
+window.loadConsumption = async () => {
+  const dateEl = document.getElementById('cons-date')
+  const date = dateEl?.value || new Date().toISOString().split('T')[0]
+  if (!dateEl.value) dateEl.value = date
+
+  const { data: prod } = await sb.from('daily_production').select('*').eq('date', date).single()
+  if (!prod) {
+    document.getElementById('cons-detail').innerHTML = '<div class="empty-state">📭<p>No production logged for this date</p></div>'
+    document.getElementById('cons-produced').textContent = '—'
+    document.getElementById('cons-vendor').textContent = '—'
+    document.getElementById('cons-cashier').textContent = '—'
+    document.getElementById('cons-burst').textContent = '—'
+    return
+  }
+
+  const dayStart = date + 'T00:00:00', dayEnd = date + 'T23:59:59'
+
+  const [{ data: orders }, { data: floats }] = await Promise.all([
+    sb.from('orders').select('bags_ordered, burst_not_replaced, order_status').gte('created_at', dayStart).lte('created_at', dayEnd),
+    sb.from('cashier_float').select('bags_allocated, status').eq('date', date)
+  ])
+
+  const vendorBags = (orders||[]).reduce((s, o) => s + (o.bags_ordered||0), 0)
+  const cashierBags = (floats||[]).filter(f => f.status === 'approved').reduce((s, f) => s + (f.bags_allocated||0), 0)
+  const burstLoss = (orders||[]).reduce((s, o) => s + Math.ceil((o.burst_not_replaced||0)/20), 0)
+  const total = prod.total_bags
+  const remaining = prod.available_bags
+  const used = total - remaining
+
+  document.getElementById('cons-produced').textContent = total + ' bags'
+  document.getElementById('cons-vendor').textContent = vendorBags + ' bags'
+  document.getElementById('cons-cashier').textContent = cashierBags + ' bags'
+  document.getElementById('cons-burst').textContent = burstLoss + ' bags'
+
+  // Visual bar
+  const pct = (n) => total > 0 ? Math.min(100, Math.round((n/total)*100)) : 0
+  document.getElementById('cons-bar-wrap').innerHTML = `
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Production Allocation — ${total} total bags</div>
+    <div style="background:var(--dark2);border-radius:10px;overflow:hidden;height:28px;display:flex;">
+      <div style="width:${pct(vendorBags)}%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;font-weight:600;min-width:${vendorBags>0?'30px':'0'}">${pct(vendorBags)>5?pct(vendorBags)+'%':''}</div>
+      <div style="width:${pct(cashierBags)}%;background:var(--warning);display:flex;align-items:center;justify-content:center;font-size:11px;color:#000;font-weight:600;min-width:${cashierBags>0?'30px':'0'}">${pct(cashierBags)>5?pct(cashierBags)+'%':''}</div>
+      <div style="width:${pct(burstLoss)}%;background:var(--danger);display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;min-width:${burstLoss>0?'20px':'0'}">${pct(burstLoss)>5?pct(burstLoss)+'%':''}</div>
+      <div style="flex:1;background:rgba(0,229,160,0.2);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--success);">${remaining} remaining</div>
+    </div>
+    <div style="display:flex;gap:16px;margin-top:8px;flex-wrap:wrap;font-size:12px;">
+      <span style="color:var(--blue)">■ Vendor orders (${vendorBags})</span>
+      <span style="color:var(--warning)">■ Cashier float (${cashierBags})</span>
+      <span style="color:var(--danger)">■ Burst loss (${burstLoss})</span>
+      <span style="color:var(--success)">■ Remaining (${remaining})</span>
+    </div>`
+
+  document.getElementById('cons-detail').innerHTML = `<table>
+    <thead><tr><th>Category</th><th>Bags</th><th>% of Production</th><th>Value (₦)</th></tr></thead>
+    <tbody>
+      <tr><td>📦 Vendor Orders</td><td>${vendorBags}</td><td>${pct(vendorBags)}%</td><td style="color:var(--blue)">₦${(vendorBags*prod.price_per_bag).toLocaleString()}</td></tr>
+      <tr><td>💰 Cashier Float</td><td>${cashierBags}</td><td>${pct(cashierBags)}%</td><td style="color:var(--warning)">₦${(cashierBags*prod.price_per_bag).toLocaleString()}</td></tr>
+      <tr><td>💥 Burst Loss (not replaced)</td><td>${burstLoss}</td><td>${pct(burstLoss)}%</td><td style="color:var(--danger)">₦${(burstLoss*prod.price_per_bag).toLocaleString()}</td></tr>
+      <tr style="background:rgba(0,87,255,0.04)"><td style="font-weight:700">✅ Remaining Stock</td><td style="font-weight:700">${remaining}</td><td>${pct(remaining)}%</td><td style="font-weight:700;color:var(--success)">₦${(remaining*prod.price_per_bag).toLocaleString()}</td></tr>
+    </tbody>
+  </table>`
+}
+
+// INIT — restore last active page from URL hash on refresh
+const _validPages = ['overview','orders','production','vendors','ledger','new-order','cashier','burst','transfers','consumption']
+const _initPage = _validPages.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'overview'
+_showPageImpl(_initPage)
+
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => console.log('[PureFlow] SW registered:', reg.scope))
+        .catch(err => console.warn('[PureFlow] SW registration failed:', err))
+    })
+  }
+</script>
+</body>
+</html>

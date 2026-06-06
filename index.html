@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>PureFlow — Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --blue: #1A56DB; --blue-dark: #0F47D4; --cyan: #2563EB;
+    --dark: #F0F4F8; --dark2: #E8EEF7; --card: #FFFFFF;
+    --border: #C7D7ED; --text: #1A2340; --muted: #5B6B8C;
+    --success: #10B981; --warning: #D97706; --danger: #EF4444;
+  }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: linear-gradient(135deg, #fff 0%, #EBF2FF 100%);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .grid-bg {
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(26,86,219,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(26,86,219,0.05) 1px, transparent 1px);
+    background-size: 36px 36px;
+    pointer-events: none;
+  }
+  .login-wrap {
+    width: 100%; max-width: 420px; padding: 20px;
+    position: relative; z-index: 10;
+    animation: fadeUp 0.5s ease both;
+  }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+  .brand { text-align: center; margin-bottom: 32px; }
+  .brand-icon {
+    width: 68px; height: 68px;
+    background: linear-gradient(135deg, var(--blue), #0080FF);
+    border-radius: 20px; display: flex; align-items: center; justify-content: center;
+    font-size: 32px; margin: 0 auto 14px;
+    box-shadow: 0 8px 24px rgba(26,86,219,0.3);
+  }
+  .brand h1 {
+    font-family: 'Syne', sans-serif; font-size: 30px; font-weight: 800;
+    letter-spacing: -0.5px; color: var(--text);
+  }
+  .brand p { color: var(--muted); font-size: 13px; margin-top: 6px; font-weight: 500; }
+  .card {
+    background: var(--card); border-radius: 18px; padding: 28px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1); border: 1px solid var(--border);
+  }
+  .tabs {
+    display: flex; background: var(--dark2); border-radius: 10px;
+    padding: 4px; margin-bottom: 24px; border: 1px solid var(--border);
+  }
+  .tab {
+    flex: 1; text-align: center; padding: 10px 16px; border-radius: 8px;
+    font-size: 13px; font-weight: 600; cursor: pointer; color: var(--muted);
+    transition: all 0.2s; border: none; background: transparent;
+  }
+  .tab.active { background: var(--blue); color: #fff; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 8px; }
+  input, select {
+    width: 100%; background: var(--dark2); border: 1.5px solid var(--border); border-radius: 10px;
+    padding: 13px 16px; color: var(--text); font-family: 'DM Sans', sans-serif;
+    font-size: 15px; margin-bottom: 16px; outline: none; transition: all 0.2s;
+  }
+  input::placeholder { color: var(--muted); }
+  input:focus, select:focus { border-color: var(--blue); background: #fff; box-shadow: 0 0 0 3px rgba(26,86,219,0.1); }
+  select option { background: var(--card); color: var(--text); }
+  .btn {
+    width: 100%; padding: 14px; background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+    color: #fff; border: none; border-radius: 10px; font-family: 'Syne', sans-serif;
+    font-size: 15px; font-weight: 700; cursor: pointer; letter-spacing: 0.3px;
+    transition: all 0.2s; box-shadow: 0 4px 16px rgba(26,86,219,0.35); text-transform: uppercase;
+  }
+  .btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(26,86,219,0.45); }
+  .btn:active:not(:disabled) { transform: translateY(0); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-outline { background: transparent; border: 1.5px solid var(--border); color: var(--text); box-shadow: none; margin-top: 10px; }
+  .error { color: var(--danger); font-size: 13px; text-align: center; margin-top: 12px; min-height: 18px; font-weight: 500; }
+  .success { color: var(--success); font-size: 13px; text-align: center; margin-top: 12px; font-weight: 500; }
+  .form-section { display: none; }
+  .form-section.active { display: block; }
+  .divider { text-align: center; color: var(--muted); font-size: 12px; margin: 8px 0 16px; }
+  .spinner { display: inline-block; width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff;
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+    vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 480px) {
+    .login-wrap { padding: 14px; }
+    .brand { margin-bottom: 22px; }
+    .brand h1 { font-size: 26px; }
+    .card { padding: 20px; }
+    input, select { padding: 12px 13px; font-size: 16px; }
+    .btn { font-size: 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+
+<div class="login-wrap">
+  <div class="brand">
+    <div class="brand-icon">💧</div>
+    <h1>PureFlow</h1>
+    <p>Pure Water Management System</p>
+  </div>
+
+  <div class="card">
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('login')">Login</div>
+      <div class="tab" onclick="switchTab('register')">Register</div>
+    </div>
+
+    <!-- LOGIN -->
+    <div class="form-section active" id="login-section">
+      <label>Phone Number</label>
+      <input type="tel" id="login-phone" placeholder="e.g. 08012345678" />
+      <label>4-Digit PIN</label>
+      <input type="password" id="login-pin" placeholder="••••" maxlength="4" />
+      <button class="btn" onclick="doLogin()">Login</button>
+      <p class="error" id="login-error"></p>
+    </div>
+
+    <!-- REGISTER (Vendor only) -->
+    <div class="form-section" id="register-section">
+      <label>Full Name</label>
+      <input type="text" id="reg-name" placeholder="e.g. Musa Ibrahim" />
+      <label>Phone Number</label>
+      <input type="tel" id="reg-phone" placeholder="e.g. 08012345678" />
+      <label>Address / Area</label>
+      <input type="text" id="reg-address" placeholder="e.g. Tudun Wada, Kano" />
+      <label>Create 4-Digit PIN</label>
+      <input type="password" id="reg-pin" placeholder="••••" maxlength="4" />
+      <button class="btn" onclick="doRegister()">Create Account</button>
+      <p class="error" id="reg-error"></p>
+      <p class="success" id="reg-success"></p>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+
+const supabase = createClient(
+  'https://jiwbifgdzxbtludusctf.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imppd2JpZmdkenhidGx1ZHVzY3RmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2ODUyNDMsImV4cCI6MjA5NjI2MTI0M30.iIlsTnHgZLGq2-EvbJAcTl6WcjmqM3gi5cjnNykjOYs'
+)
+
+// Auto-redirect if already logged in with valid session
+;(function() {
+  try {
+    const s = JSON.parse(localStorage.getItem('pf_user'))
+    if (s && s._expires && Date.now() < s._expires) {
+      const routes = { admin:'admin.html', vendor:'vendor.html', driver:'driver.html', cashier:'cashier.html' }
+      if (routes[s.role]) window.location.href = routes[s.role]
+    } else if (s) {
+      localStorage.removeItem('pf_user')
+    }
+  } catch(e) {}
+})()
+
+window.switchTab = (tab) => {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', (i===0&&tab==='login')||(i===1&&tab==='register')))
+  document.getElementById('login-section').classList.toggle('active', tab==='login')
+  document.getElementById('register-section').classList.toggle('active', tab==='register')
+}
+
+// ── Brute-force lockout helpers ──────────────────────────────────────────────
+const MAX_ATTEMPTS = 5
+const LOCKOUT_MS   = 5 * 60 * 1000   // 5-minute lockout
+const SESSION_TTL  = 8 * 60 * 60 * 1000  // 8-hour session
+
+function getLockout(phone) {
+  try { return JSON.parse(localStorage.getItem('pf_lock_' + phone) || 'null') } catch { return null }
+}
+function setLockout(phone, data) {
+  localStorage.setItem('pf_lock_' + phone, JSON.stringify(data))
+}
+function clearLockout(phone) { localStorage.removeItem('pf_lock_' + phone) }
+
+window.doLogin = async () => {
+  const phone = document.getElementById('login-phone').value.trim()
+  const pin   = document.getElementById('login-pin').value.trim()
+  const err   = document.getElementById('login-error')
+  err.textContent = ''
+
+  if (!phone || pin.length !== 4) { err.textContent = 'Enter phone and 4-digit PIN'; return }
+
+  // ── Lockout check ──────────────────────────────────────────────────────────
+  const lock = getLockout(phone)
+  if (lock) {
+    const elapsed = Date.now() - lock.since
+    if (lock.attempts >= MAX_ATTEMPTS && elapsed < LOCKOUT_MS) {
+      const mins = Math.ceil((LOCKOUT_MS - elapsed) / 60000)
+      err.textContent = `🔒 Account locked. Try again in ${mins} min.`
+      return
+    }
+    if (elapsed >= LOCKOUT_MS) clearLockout(phone)
+  }
+
+  const btn = document.querySelector('#login-section .btn')
+  btn.innerHTML = '<span class="spinner"></span>Logging in...'
+  btn.disabled = true
+
+  const { data: phoneCheck } = await supabase.from('users').select('id').eq('phone', phone)
+  if (!phoneCheck?.length) {
+    err.textContent = '❌ Phone number not found'
+    btn.innerHTML = 'Login'; btn.disabled = false; return
+  }
+
+  const { data, error } = await supabase.from('users').select('*').eq('phone', phone).eq('pin', pin).single()
+
+  btn.innerHTML = 'Login'
+  btn.disabled = false
+
+  if (error || !data) {
+    // Record failed attempt
+    const cur = getLockout(phone) || { attempts: 0, since: Date.now() }
+    cur.attempts++
+    cur.since = cur.attempts === 1 ? Date.now() : cur.since
+    setLockout(phone, cur)
+    const left = MAX_ATTEMPTS - cur.attempts
+    err.textContent = left > 0
+      ? `❌ Wrong PIN. ${left} attempt${left!==1?'s':''} left.`
+      : '🔒 Too many wrong attempts. Locked for 5 minutes.'
+    return
+  }
+
+  clearLockout(phone)
+
+  // Store session with expiry timestamp
+  const session = { ...data, _expires: Date.now() + SESSION_TTL }
+  localStorage.setItem('pf_user', JSON.stringify(session))
+
+  const routes = { admin:'admin.html', vendor:'vendor.html', driver:'driver.html', cashier:'cashier.html' }
+  window.location.href = routes[data.role] || 'index.html'
+}
+
+window.doRegister = async () => {
+  const name = document.getElementById('reg-name').value.trim()
+  const phone = document.getElementById('reg-phone').value.trim()
+  const address = document.getElementById('reg-address').value.trim()
+  const pin = document.getElementById('reg-pin').value.trim()
+  const err = document.getElementById('reg-error')
+  const suc = document.getElementById('reg-success')
+  err.textContent = ''; suc.textContent = ''
+
+  if (!name || !phone || !address || pin.length !== 4) {
+    err.textContent = 'Please fill all fields and use a 4-digit PIN'; return
+  }
+
+  const btn = document.querySelector('#register-section .btn')
+  btn.innerHTML = '<span class="spinner"></span>Creating account...'
+  btn.disabled = true
+
+  const { error } = await supabase.from('users').insert({
+    full_name: name, phone, address: address, pin, role: 'vendor',
+    credit_limit: 0, total_debt: 0, is_blocked: false
+  })
+
+  btn.innerHTML = 'Create Account'
+  btn.disabled = false
+
+  if (error) {
+    err.textContent = error.code === '23505' ? 'Phone number already registered' : 'Registration failed. Try again.'
+    return
+  }
+
+  suc.textContent = '✅ Account created! You can now login.'
+  document.getElementById('reg-name').value = ''
+  document.getElementById('reg-phone').value = ''
+  document.getElementById('reg-address').value = ''
+  document.getElementById('reg-pin').value = ''
+}
+</script>
+</body>
+</html>
