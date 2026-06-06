@@ -288,12 +288,12 @@ const sb = createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imppd2JpZmdkenhidGx1ZHVzY3RmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2ODUyNDMsImV4cCI6MjA5NjI2MTI0M30.iIlsTnHgZLGq2-EvbJAcTl6WcjmqM3gi5cjnNykjOYs'
 )
 
-const _vRaw = localStorage.getItem('pf_user')
+const _vRaw = localStorage.getItem('pf_user_vendor') || localStorage.getItem('pf_user')
 let user = null
 try { user = JSON.parse(_vRaw) } catch(e) {}
 if (!user || user.role !== 'vendor') window.location.href = 'index.html'
-if (user._expires && Date.now() > user._expires) { localStorage.removeItem('pf_user'); window.location.href = 'index.html' }
-function touchSession() { if(user){ user._expires = Date.now() + 8*60*60*1000; localStorage.setItem('pf_user', JSON.stringify(user)) } }
+if (user._expires && Date.now() > user._expires) { localStorage.removeItem('pf_user_vendor'); localStorage.removeItem('pf_user'); window.location.href = 'index.html' }
+function touchSession() { if(user){ user._expires = Date.now() + 8*60*60*1000; localStorage.setItem('pf_user_vendor', JSON.stringify(user)); localStorage.setItem('pf_user', JSON.stringify(user)) } }
 document.addEventListener('click', (e) => { if (!e.target.closest('.logout-btn')) touchSession() })
 
 document.getElementById('vendor-greeting').textContent = 'Hello, ' + user.full_name.split(' ')[0]
@@ -321,7 +321,7 @@ const _showPageImpl = (name, el) => {
 }
 window._registerShowPage(_showPageImpl)
 
-window.logout = () => { localStorage.removeItem('pf_user'); window.location.href = 'index.html' }
+window.logout = () => { localStorage.removeItem('pf_user_vendor'); localStorage.removeItem('pf_user'); window.location.href = 'index.html' }
 
 async function loadHome() {
   // Refresh vendor data

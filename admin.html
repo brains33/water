@@ -196,6 +196,7 @@
     <div class="nav-item" onclick="showPage('transfers')"><span>🏦</span> Transfers <span id="transfer-badge" style="background:var(--warning);color:#000;border-radius:20px;padding:1px 7px;font-size:10px;margin-left:4px;display:none">!</span></div>
     <div class="nav-item" onclick="showPage('consumption')"><span>📈</span> Bag Flow</div>
     <div class="nav-item" onclick="showPage('burst')"><span>💥</span> Burst Reports</div>
+    <div class="nav-item" onclick="showPage('users')"><span>🔑</span> <span class="nav-label">User Management</span></div>
   </nav>
   <div class="sidebar-footer">
     <div class="user-info">
@@ -531,6 +532,72 @@
     </div>
   </div>
 
+  <!-- USER MANAGEMENT PAGE -->
+  <div class="page" id="page-users">
+    <div class="page-header">
+      <h1>🔑 User Management</h1>
+      <p>Create and manage admins, vendors, cashiers and drivers</p>
+    </div>
+
+    <div id="users-alert"></div>
+
+    <!-- Role filter tabs -->
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn btn-sm btn-outline active-role-filter" onclick="filterUsers('all',this)">All</button>
+      <button class="btn btn-sm btn-outline" onclick="filterUsers('admin',this)">👑 Admins</button>
+      <button class="btn btn-sm btn-outline" onclick="filterUsers('vendor',this)">👥 Vendors</button>
+      <button class="btn btn-sm btn-outline" onclick="filterUsers('cashier',this)">💰 Cashiers</button>
+      <button class="btn btn-sm btn-outline" onclick="filterUsers('driver',this)">🚚 Drivers</button>
+      <button class="btn btn-sm btn-success" onclick="openCreateUser()" style="margin-left:auto">➕ New User</button>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden">
+      <div id="users-table"><div class="empty-state">⏳<p>Loading users...</p></div></div>
+    </div>
+
+    <!-- CREATE / EDIT USER MODAL -->
+    <div id="user-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;padding:20px">
+      <div style="background:var(--card);border-radius:16px;padding:24px;width:100%;max-width:440px;border:1px solid var(--border);box-shadow:0 8px 32px rgba(0,0,0,0.15)">
+        <h3 style="font-family:Syne,sans-serif;font-size:18px;font-weight:800;margin-bottom:20px" id="modal-title">➕ Create User</h3>
+        <div id="modal-alert"></div>
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" id="u-name" placeholder="e.g. Musa Ibrahim" />
+        </div>
+        <div class="form-group">
+          <label>Phone Number</label>
+          <input type="tel" id="u-phone" placeholder="e.g. 08012345678" />
+        </div>
+        <div class="form-group">
+          <label>Role</label>
+          <select id="u-role" onchange="toggleUserRoleFields()">
+            <option value="vendor">👥 Vendor</option>
+            <option value="cashier">💰 Cashier</option>
+            <option value="driver">🚚 Driver</option>
+            <option value="admin">👑 Admin</option>
+          </select>
+        </div>
+        <div class="form-group" id="u-address-group">
+          <label>Address / Area</label>
+          <input type="text" id="u-address" placeholder="e.g. Tudun Wada, Kano" />
+        </div>
+        <div class="form-group" id="u-credit-group" style="display:none">
+          <label>Credit Limit (₦)</label>
+          <input type="number" id="u-credit" placeholder="e.g. 100000" value="0" />
+        </div>
+        <div class="form-group">
+          <label id="u-pin-label">4-Digit PIN</label>
+          <input type="password" id="u-pin" placeholder="••••" maxlength="4" />
+        </div>
+        <input type="hidden" id="u-id" value="" />
+        <div style="display:flex;gap:10px;margin-top:8px">
+          <button class="btn btn-outline" onclick="closeUserModal()" style="flex:1">Cancel</button>
+          <button class="btn" onclick="saveUser()" style="flex:2" id="modal-save-btn">✅ Create User</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <script>
@@ -554,13 +621,12 @@ const sb = createClient(
 )
 
 // AUTH GUARD + session expiry
-const _raw = localStorage.getItem('pf_user')
+const _raw = localStorage.getItem('pf_user_admin') || localStorage.getItem('pf_user')
 let user = null
 try { user = JSON.parse(_raw) } catch(e) {}
 if (!user || user.role !== 'admin') window.location.href = 'index.html'
-if (user._expires && Date.now() > user._expires) { localStorage.removeItem('pf_user'); window.location.href = 'index.html' }
-// Refresh session on activity
-function touchSession() { if(user){ user._expires = Date.now() + 8*60*60*1000; localStorage.setItem('pf_user', JSON.stringify(user)) } }
+if (user._expires && Date.now() > user._expires) { localStorage.removeItem('pf_user_admin'); localStorage.removeItem('pf_user'); window.location.href = 'index.html' }
+function touchSession() { if(user){ user._expires = Date.now() + 8*60*60*1000; localStorage.setItem('pf_user_admin', JSON.stringify(user)); localStorage.setItem('pf_user', JSON.stringify(user)) } }
 document.addEventListener('click', (e) => { if (!e.target.closest('.logout-btn')) touchSession() })
 document.getElementById('admin-name').textContent = user?.full_name || 'Admin'
 document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-NG', {weekday:'long', year:'numeric', month:'long', day:'numeric'})
@@ -594,10 +660,11 @@ const _showPageImpl = (name) => {
   if (name === 'burst') loadBurstReports()
   if (name === 'transfers') loadTransfers()
   if (name === 'consumption') loadConsumption()
+  if (name === 'users') loadUsers()
 }
 window._registerShowPage(_showPageImpl)
 
-window.logout = () => { localStorage.removeItem('pf_user'); window.location.href = 'index.html' }
+window.logout = () => { localStorage.removeItem('pf_user_admin'); localStorage.removeItem('pf_user'); window.location.href = 'index.html' }
 
 // LOAD OVERVIEW
 async function loadOverview() {
@@ -1458,8 +1525,219 @@ window.loadConsumption = async () => {
   </table>`
 }
 
+// USER MANAGEMENT
+let allUsers = []
+let currentRoleFilter = 'all'
+
+async function loadUsers() {
+  const { data, error } = await sb.from('users').select('*').order('role').order('full_name')
+  if (error) {
+    document.getElementById('users-table').innerHTML = `<div class="empty-state">❌<p>${error.message}</p></div>`
+    return
+  }
+  allUsers = data || []
+  renderUsers()
+}
+
+window.filterUsers = (role, btn) => {
+  currentRoleFilter = role
+  document.querySelectorAll('.active-role-filter').forEach(b => b.classList.remove('active-role-filter'))
+  btn.classList.add('active-role-filter')
+  renderUsers()
+}
+
+function renderUsers() {
+  const filtered = currentRoleFilter === 'all' ? allUsers : allUsers.filter(u => u.role === currentRoleFilter)
+  if (!filtered.length) {
+    document.getElementById('users-table').innerHTML = '<div class="empty-state">👤<p>No users found</p></div>'
+    return
+  }
+  const roleIcon = { admin:'👑', vendor:'👥', cashier:'💰', driver:'🚚' }
+  let html = `<table><thead><tr>
+    <th>Name</th><th>Phone</th><th>Role</th><th>Status</th><th>Details</th><th>Actions</th>
+  </tr></thead><tbody>`
+  filtered.forEach(u => {
+    const extras = u.role === 'vendor'
+      ? `<div style="font-size:11px;color:var(--muted)">Debt: ₦${(u.total_debt||0).toLocaleString()} / Limit: ₦${(u.credit_limit||0).toLocaleString()}</div>`
+      : `<div style="font-size:11px;color:var(--muted)">${u.address || '—'}</div>`
+    html += `<tr>
+      <td style="font-weight:600">${u.full_name}</td>
+      <td>${u.phone}</td>
+      <td><span class="badge badge-approved">${roleIcon[u.role]||''} ${u.role}</span></td>
+      <td><span class="badge ${u.is_blocked?'badge-unpaid':'badge-delivered'}">${u.is_blocked?'Blocked':'Active'}</span></td>
+      <td>${extras}</td>
+      <td style="display:flex;gap:5px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-outline" onclick="openEditUser('${u.id}')">✏️ Edit</button>
+        <button class="btn btn-sm btn-outline" onclick="resetPin('${u.id}','${u.full_name}')">🔑 PIN</button>
+        <button class="btn btn-sm ${u.is_blocked?'btn-success':'btn-warning'}" onclick="toggleUserBlock('${u.id}',${!!u.is_blocked})">${u.is_blocked?'Unblock':'Block'}</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}','${u.full_name}')">🗑️</button>
+      </td>
+    </tr>`
+  })
+  html += '</tbody></table>'
+  document.getElementById('users-table').innerHTML = html
+}
+
+window.openCreateUser = () => {
+  document.getElementById('u-id').value = ''
+  document.getElementById('u-name').value = ''
+  document.getElementById('u-phone').value = ''
+  document.getElementById('u-pin').value = ''
+  document.getElementById('u-address').value = ''
+  document.getElementById('u-credit').value = '0'
+  document.getElementById('u-role').value = 'vendor'
+  document.getElementById('modal-title').textContent = '➕ Create User'
+  document.getElementById('modal-save-btn').textContent = '✅ Create User'
+  document.getElementById('u-pin-label').textContent = '4-Digit PIN'
+  document.getElementById('u-pin').placeholder = '••••'
+  document.getElementById('u-pin').required = true
+  document.getElementById('modal-alert').innerHTML = ''
+  toggleUserRoleFields()
+  document.getElementById('user-modal').style.display = 'flex'
+}
+
+window.openEditUser = (id) => {
+  const u = allUsers.find(u => u.id === id)
+  if (!u) return
+  document.getElementById('u-id').value = u.id
+  document.getElementById('u-name').value = u.full_name
+  document.getElementById('u-phone').value = u.phone
+  document.getElementById('u-pin').value = ''
+  document.getElementById('u-address').value = u.address || ''
+  document.getElementById('u-credit').value = u.credit_limit || 0
+  document.getElementById('u-role').value = u.role
+  document.getElementById('modal-title').textContent = '✏️ Edit User — ' + u.full_name
+  document.getElementById('modal-save-btn').textContent = '💾 Save Changes'
+  document.getElementById('u-pin-label').textContent = 'New PIN (leave blank to keep current)'
+  document.getElementById('u-pin').placeholder = 'Leave blank to keep'
+  document.getElementById('u-pin').required = false
+  document.getElementById('modal-alert').innerHTML = ''
+  toggleUserRoleFields()
+  document.getElementById('user-modal').style.display = 'flex'
+}
+
+window.closeUserModal = () => {
+  document.getElementById('user-modal').style.display = 'none'
+}
+
+window.toggleUserRoleFields = () => {
+  const role = document.getElementById('u-role').value
+  document.getElementById('u-credit-group').style.display = role === 'vendor' ? 'block' : 'none'
+  document.getElementById('u-address-group').style.display = (role === 'vendor' || role === 'driver') ? 'block' : 'none'
+}
+
+window.saveUser = async () => {
+  const id = document.getElementById('u-id').value
+  const name = document.getElementById('u-name').value.trim()
+  const phone = document.getElementById('u-phone').value.trim()
+  const pin = document.getElementById('u-pin').value.trim()
+  const role = document.getElementById('u-role').value
+  const address = document.getElementById('u-address').value.trim()
+  const credit = parseFloat(document.getElementById('u-credit').value) || 0
+  const alertEl = document.getElementById('modal-alert')
+  alertEl.innerHTML = ''
+
+  if (!name || !phone) { alertEl.innerHTML = '<div class="alert alert-error">Name and phone are required</div>'; return }
+  if (!id && pin.length !== 4) { alertEl.innerHTML = '<div class="alert alert-error">PIN must be 4 digits for new users</div>'; return }
+  if (pin && pin.length !== 4) { alertEl.innerHTML = '<div class="alert alert-error">PIN must be exactly 4 digits</div>'; return }
+
+  const btn = document.getElementById('modal-save-btn')
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Saving...'
+
+  const payload = { full_name: name, phone, role, address: address || null }
+  if (role === 'vendor') payload.credit_limit = credit
+  if (pin) payload.pin = pin
+
+  let error
+  if (id) {
+    // Edit existing
+    const res = await sb.from('users').update(payload).eq('id', id)
+    error = res.error
+  } else {
+    // Create new
+    if (!pin) { alertEl.innerHTML = '<div class="alert alert-error">PIN is required for new users</div>'; btn.disabled=false; btn.innerHTML='✅ Create User'; return }
+    payload.pin = pin
+    payload.total_debt = 0
+    payload.is_blocked = false
+    const res = await sb.from('users').insert(payload)
+    error = res.error
+  }
+
+  btn.disabled = false
+  btn.innerHTML = id ? '💾 Save Changes' : '✅ Create User'
+
+  if (error) {
+    alertEl.innerHTML = `<div class="alert alert-error">❌ ${error.code === '23505' ? 'Phone number already exists' : error.message}</div>`
+    return
+  }
+
+  closeUserModal()
+  showAlert('users-alert', 'success', id ? `✅ ${name} updated successfully` : `✅ ${name} created as ${role}`)
+  loadUsers()
+}
+
+window.resetPin = async (id, name) => {
+  const pin = prompt(`Enter new 4-digit PIN for ${name}:`)
+  if (pin === null) return
+  if (pin.length !== 4 || isNaN(pin)) { showAlert('users-alert','error','PIN must be 4 digits'); return }
+  const { error } = await sb.from('users').update({ pin }).eq('id', id)
+  if (error) { showAlert('users-alert','error','Failed: ' + error.message); return }
+  showAlert('users-alert','success',`✅ PIN reset for ${name}`)
+}
+
+window.toggleUserBlock = async (id, blocked) => {
+  const u = allUsers.find(u => u.id === id)
+  const action = blocked ? 'unblock' : 'block'
+  if (!confirm(`${action.charAt(0).toUpperCase()+action.slice(1)} ${u?.full_name}?`)) return
+  await sb.from('users').update({ is_blocked: !blocked }).eq('id', id)
+  showAlert('users-alert','success',`✅ ${u?.full_name} ${action}ed`)
+  loadUsers()
+}
+
+window.deleteUser = async (id, name) => {
+  const u = allUsers.find(u => u.id === id)
+
+  // Prevent self-deletion
+  if (id === user.id) {
+    showAlert('users-alert', 'error', '❌ You cannot delete your own account while logged in.')
+    return
+  }
+
+  // Check for linked data depending on role
+  let warnings = []
+
+  if (u?.role === 'vendor') {
+    const { count } = await sb.from('orders').select('id', { count: 'exact', head: true }).eq('vendor_id', id)
+    if (count > 0) warnings.push(`${count} order${count !== 1 ? 's' : ''} linked to this vendor`)
+  }
+
+  if (u?.role === 'driver') {
+    const { count } = await sb.from('orders').select('id', { count: 'exact', head: true }).eq('assigned_driver_id', id)
+    if (count > 0) warnings.push(`${count} delivery assignment${count !== 1 ? 's' : ''} linked to this driver`)
+  }
+
+  if (u?.role === 'cashier') {
+    const { count } = await sb.from('cashier_float').select('id', { count: 'exact', head: true }).eq('cashier_id', id)
+    if (count > 0) warnings.push(`${count} float record${count !== 1 ? 's' : ''} linked to this cashier`)
+  }
+
+  if (warnings.length > 0) {
+    const proceed = confirm(
+      `⚠️ WARNING — ${name} has linked data:\n\n• ${warnings.join('\n• ')}\n\nDeleting will orphan this data and may break reports.\n\nConsider using BLOCK instead.\n\nAre you absolutely sure you want to delete?`
+    )
+    if (!proceed) return
+  } else {
+    if (!confirm(`Delete ${name}? They have no linked data so this is safe.`)) return
+  }
+
+  const { error } = await sb.from('users').delete().eq('id', id)
+  if (error) { showAlert('users-alert', 'error', 'Delete failed: ' + error.message); return }
+  showAlert('users-alert', 'success', `🗑️ ${name} deleted`)
+  loadUsers()
+}
+
 // INIT — restore last active page from URL hash on refresh
-const _validPages = ['overview','orders','production','vendors','ledger','new-order','cashier','burst','transfers','consumption']
+const _validPages = ['overview','orders','production','vendors','ledger','new-order','cashier','burst','transfers','consumption','users']
 const _initPage = _validPages.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'overview'
 _showPageImpl(_initPage)
 

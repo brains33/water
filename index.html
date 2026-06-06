@@ -156,17 +156,22 @@ const supabase = createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imppd2JpZmdkenhidGx1ZHVzY3RmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2ODUyNDMsImV4cCI6MjA5NjI2MTI0M30.iIlsTnHgZLGq2-EvbJAcTl6WcjmqM3gi5cjnNykjOYs'
 )
 
-// Auto-redirect if already logged in with valid session
+// Auto-redirect if already logged in with valid session for THIS device's last login
+// Use per-role keys so multiple roles can coexist on the same browser
 ;(function() {
-  try {
-    const s = JSON.parse(localStorage.getItem('pf_user'))
-    if (s && s._expires && Date.now() < s._expires) {
-      const routes = { admin:'admin.html', vendor:'vendor.html', driver:'driver.html', cashier:'cashier.html' }
-      if (routes[s.role]) window.location.href = routes[s.role]
-    } else if (s) {
-      localStorage.removeItem('pf_user')
-    }
-  } catch(e) {}
+  // Check all role sessions — redirect only if exactly one valid session exists
+  const roles = ['admin','vendor','driver','cashier']
+  const routes = { admin:'admin.html', vendor:'vendor.html', driver:'driver.html', cashier:'cashier.html' }
+  const valid = []
+  roles.forEach(role => {
+    try {
+      const s = JSON.parse(localStorage.getItem('pf_user_' + role))
+      if (s && s._expires && Date.now() < s._expires) valid.push(role)
+      else if (s) localStorage.removeItem('pf_user_' + role)
+    } catch(e) {}
+  })
+  // Only auto-redirect if one session is active (don't auto-pick if multiple)
+  if (valid.length === 1) window.location.href = routes[valid[0]]
 })()
 
 window.switchTab = (tab) => {
@@ -238,8 +243,10 @@ window.doLogin = async () => {
 
   clearLockout(phone)
 
-  // Store session with expiry timestamp
+  // Store session under role-specific key so multiple roles don't collide
   const session = { ...data, _expires: Date.now() + SESSION_TTL }
+  localStorage.setItem('pf_user_' + data.role, JSON.stringify(session))
+  // Also keep the shared key for backward compat with page guards
   localStorage.setItem('pf_user', JSON.stringify(session))
 
   const routes = { admin:'admin.html', vendor:'vendor.html', driver:'driver.html', cashier:'cashier.html' }
