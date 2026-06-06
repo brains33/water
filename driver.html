@@ -209,14 +209,39 @@ async function loadDeliveries() {
   const today = new Date().toISOString().split('T')[0]
   const todayStart = today + 'T00:00:00', todayEnd = today + 'T23:59:59'
 
-  // Show orders assigned to this driver OR unassigned — today only
-  const { data: orders } = await sb.from('orders')
-    .select('*, users(full_name, phone, address)')
+  const { data: orders, error } = await sb.from('orders')
+    .select('*, users!orders_vendor_id_fkey(full_name, phone, address)')
     .in('order_status', ['approved', 'dispatched', 'delivered'])
     .gte('created_at', todayStart)
     .lte('created_at', todayEnd)
     .or(`assigned_driver_id.eq.${user.id},assigned_driver_id.is.null`)
     .order('created_at', {ascending:true})
+
+  if (error) {
+    // Fallback: if FK alias fails, try without join and fetch vendor names separately
+    const { data: rawOrders } = await sb.from('orders')
+      .select('*')
+      .in('order_status', ['approved', 'dispatched', 'delivered'])
+      .gte('created_at', todayStart)
+      .lte('created_at', todayEnd)
+      .or(`assigned_driver_id.eq.${user.id},assigned_driver_id.is.null`)
+      .order('created_at', {ascending:true})
+
+    const vendorIds = [...new Set((rawOrders||[]).map(o => o.vendor_id).filter(Boolean))]
+    let vendorMap = {}
+    if (vendorIds.length) {
+      const { data: vends } = await sb.from('users').select('id, full_name, phone, address').in('id', vendorIds)
+      ;(vends||[]).forEach(v => { vendorMap[v.id] = v })
+    }
+    const merged = (rawOrders||[]).map(o => ({ ...o, users: vendorMap[o.vendor_id] || null }))
+    const list = document.getElementById('deliveries-list')
+    if (!merged.length) {
+      list.innerHTML = '<div class="empty"><span class="empty-icon">📭</span>No deliveries for today yet.<br><small>Ask admin to approve orders first.</small></div>'
+      return
+    }
+    list.innerHTML = merged.map(o => buildCard(o)).join('')
+    return
+  }
 
   const list = document.getElementById('deliveries-list')
 

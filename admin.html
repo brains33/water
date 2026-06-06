@@ -884,13 +884,13 @@ window.approveOrder = async (id) => {
       </div>
     </div>`
     document.body.appendChild(overlay)
-    overlay.querySelector('#approve-cancel').onclick = () => { document.body.removeChild(overlay); resolve(null) }
+    overlay.querySelector('#approve-cancel').onclick = () => { document.body.removeChild(overlay); resolve(false) }
     overlay.querySelector('#approve-confirm').onclick = () => {
       const dId = overlay.querySelector('#approve-driver-sel')?.value || null
       document.body.removeChild(overlay); resolve(dId !== '' ? dId : null)
     }
   })
-  if (confirmed === undefined) return // cancelled (null means no driver = ok)
+  if (confirmed === false) return // cancelled — null means "no driver assigned" which is valid
 
   // Check inventory
   const today = new Date().toISOString().split('T')[0]
@@ -936,7 +936,19 @@ window.markDelivered = async (id) => {
 window.markPaid = async (id) => {
   const order = allOrders.find(o => o.id === id)
   if (!order) return
+  const wasUnpaid = order.amount_paid || 0
+  const outstanding = order.total_amount - wasUnpaid
+
   await sb.from('orders').update({ payment_status: 'paid', amount_paid: order.total_amount }).eq('id', id)
+
+  // Sync vendor debt — deduct the outstanding amount that just got paid
+  if (outstanding > 0 && order.vendor_id) {
+    const { data: vend } = await sb.from('users').select('total_debt').eq('id', order.vendor_id).single()
+    if (vend) {
+      const newDebt = Math.max(0, (vend.total_debt || 0) - outstanding)
+      await sb.from('users').update({ total_debt: newDebt }).eq('id', order.vendor_id)
+    }
+  }
   loadOrders()
 }
 
@@ -1343,7 +1355,14 @@ async function loadTransfers() {
 }
 
 window.confirmTransfer = async (id, total) => {
+  const order = allOrders.find(o => o.id === id)
+  const outstanding = total - (order?.amount_paid || 0)
   await sb.from('orders').update({ payment_status: 'paid', amount_paid: total }).eq('id', id)
+  // Sync vendor debt
+  if (outstanding > 0 && order?.vendor_id) {
+    const { data: vend } = await sb.from('users').select('total_debt').eq('id', order.vendor_id).single()
+    if (vend) await sb.from('users').update({ total_debt: Math.max(0, (vend.total_debt||0) - outstanding) }).eq('id', order.vendor_id)
+  }
   showAlert('transfer-alert', 'success', '✅ Transfer confirmed — order marked as paid')
   loadTransfers()
 }
@@ -1356,6 +1375,11 @@ window.confirmPartialTransfer = async (id) => {
   const total = order?.total_amount || 0
   const status = newPaid >= total ? 'paid' : 'partial'
   await sb.from('orders').update({ payment_status: status, amount_paid: newPaid }).eq('id', id)
+  // Sync vendor debt
+  if (order?.vendor_id) {
+    const { data: vend } = await sb.from('users').select('total_debt').eq('id', order.vendor_id).single()
+    if (vend) await sb.from('users').update({ total_debt: Math.max(0, (vend.total_debt||0) - amt) }).eq('id', order.vendor_id)
+  }
   showAlert('transfer-alert', 'success', `✅ ₦${amt.toLocaleString()} confirmed. Status: ${status}`)
   loadTransfers()
 }
