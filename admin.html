@@ -886,17 +886,23 @@ window.approveOrder = async (id) => {
     document.body.appendChild(overlay)
     overlay.querySelector('#approve-cancel').onclick = () => { document.body.removeChild(overlay); resolve(false) }
     overlay.querySelector('#approve-confirm').onclick = () => {
-      const dId = overlay.querySelector('#approve-driver-sel')?.value || null
+      const dId = overlay.querySelector('#approve-driver-sel')?.value || ''
       document.body.removeChild(overlay); resolve(dId !== '' ? dId : null)
     }
   })
-  if (confirmed === false) return // cancelled — null means "no driver assigned" which is valid
+  if (confirmed === false) return // user cancelled — null = no driver assigned (valid)
 
   // Check inventory
   const today = new Date().toISOString().split('T')[0]
   const { data: prod } = await sb.from('daily_production').select('*').eq('date', today).single()
-  if (!prod) { alert('No production logged for today. Log production first.'); return }
-  if (prod.available_bags < order.bags_ordered) { alert(`Not enough bags! Available: ${prod.available_bags}, Ordered: ${order.bags_ordered}`); return }
+  if (!prod) {
+    showAlert('orders-alert', 'error', '❌ No production logged for today. Go to Production tab and log today\'s batch first.')
+    return
+  }
+  if (prod.available_bags < order.bags_ordered) {
+    showAlert('orders-alert', 'error', `❌ Not enough bags! Available: ${prod.available_bags}, Ordered: ${order.bags_ordered}`)
+    return
+  }
 
   const otp = String(Math.floor(1000 + Math.random() * 9000))
   const otpExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
@@ -904,9 +910,22 @@ window.approveOrder = async (id) => {
   const updateData = { order_status: 'approved', delivery_otp: otp, otp_expires_at: otpExpiry }
   if (confirmed) updateData.assigned_driver_id = confirmed
 
-  await sb.from('orders').update(updateData).eq('id', id)
-  // Atomic-safe: deduct only if still available (re-fetch before update)
-  await sb.from('daily_production').update({ available_bags: prod.available_bags - order.bags_ordered }).eq('date', today).gte('available_bags', order.bags_ordered)
+  const { error } = await sb.from('orders').update(updateData).eq('id', id)
+  if (error) {
+    showAlert('orders-alert', 'error', '❌ Failed to approve: ' + error.message)
+    return
+  }
+
+  // Deduct from production inventory
+  await sb.from('daily_production')
+    .update({ available_bags: prod.available_bags - order.bags_ordered })
+    .eq('date', today)
+    .gte('available_bags', order.bags_ordered)
+
+  const driverName = confirmed
+    ? (document.querySelector(`#approve-driver-sel option[value="${confirmed}"]`)?.textContent || 'driver')
+    : 'no specific driver'
+  showAlert('orders-alert', 'success', `✅ Order approved! OTP: ${otp} — Assigned to ${driverName}`)
   loadOrders()
 }
 
@@ -936,19 +955,7 @@ window.markDelivered = async (id) => {
 window.markPaid = async (id) => {
   const order = allOrders.find(o => o.id === id)
   if (!order) return
-  const wasUnpaid = order.amount_paid || 0
-  const outstanding = order.total_amount - wasUnpaid
-
   await sb.from('orders').update({ payment_status: 'paid', amount_paid: order.total_amount }).eq('id', id)
-
-  // Sync vendor debt — deduct the outstanding amount that just got paid
-  if (outstanding > 0 && order.vendor_id) {
-    const { data: vend } = await sb.from('users').select('total_debt').eq('id', order.vendor_id).single()
-    if (vend) {
-      const newDebt = Math.max(0, (vend.total_debt || 0) - outstanding)
-      await sb.from('users').update({ total_debt: newDebt }).eq('id', order.vendor_id)
-    }
-  }
   loadOrders()
 }
 
@@ -1355,14 +1362,7 @@ async function loadTransfers() {
 }
 
 window.confirmTransfer = async (id, total) => {
-  const order = allOrders.find(o => o.id === id)
-  const outstanding = total - (order?.amount_paid || 0)
   await sb.from('orders').update({ payment_status: 'paid', amount_paid: total }).eq('id', id)
-  // Sync vendor debt
-  if (outstanding > 0 && order?.vendor_id) {
-    const { data: vend } = await sb.from('users').select('total_debt').eq('id', order.vendor_id).single()
-    if (vend) await sb.from('users').update({ total_debt: Math.max(0, (vend.total_debt||0) - outstanding) }).eq('id', order.vendor_id)
-  }
   showAlert('transfer-alert', 'success', '✅ Transfer confirmed — order marked as paid')
   loadTransfers()
 }
@@ -1375,11 +1375,6 @@ window.confirmPartialTransfer = async (id) => {
   const total = order?.total_amount || 0
   const status = newPaid >= total ? 'paid' : 'partial'
   await sb.from('orders').update({ payment_status: status, amount_paid: newPaid }).eq('id', id)
-  // Sync vendor debt
-  if (order?.vendor_id) {
-    const { data: vend } = await sb.from('users').select('total_debt').eq('id', order.vendor_id).single()
-    if (vend) await sb.from('users').update({ total_debt: Math.max(0, (vend.total_debt||0) - amt) }).eq('id', order.vendor_id)
-  }
   showAlert('transfer-alert', 'success', `✅ ₦${amt.toLocaleString()} confirmed. Status: ${status}`)
   loadTransfers()
 }
