@@ -430,11 +430,10 @@ window.payOutstanding = async (orderId, outstanding, total) => {
   const { data: vend } = await sb.from('users').select('total_debt').eq('id', user.id).single()
   await sb.from('orders').update({ amount_paid: newPaid, payment_status: payStatus, payment_method: method }).eq('id', orderId)
 
-  // Reduce vendor debt
-  if (method === 'cash') {
-    const newDebt = Math.max(0, (vend?.total_debt||0) - outstanding)
-    await sb.from('users').update({ total_debt: newDebt }).eq('id', user.id)
-  }
+  // Reduce vendor debt for both cash (immediate) and transfer (pending)
+  // For transfer: debt reduces now; if admin rejects, they can adjust manually
+  const newDebt = Math.max(0, (vend?.total_debt || 0) - outstanding)
+  await sb.from('users').update({ total_debt: newDebt }).eq('id', user.id)
 
   const msg = method === 'transfer'
     ? '🏦 Transfer recorded! Admin will confirm receipt.'
