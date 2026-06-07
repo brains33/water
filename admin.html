@@ -425,8 +425,13 @@
       <div id="cashier-float-table"><div class="empty-state">⏳<p>Loading...</p></div></div>
     </div>
     <div class="card">
-      <div class="card-title">Active Floats — End of Day Summary</div>
+      <div class="card-title">Active Floats — Live Summary</div>
       <div id="cashier-summary-table"><div class="empty-state">⏳<p>Loading...</p></div></div>
+    </div>
+    <div class="card" id="eod-reports-card" style="display:none">
+      <div class="card-title">🔒 End-of-Day Reports from Cashiers</div>
+      <p style="color:var(--muted);font-size:13px;margin-bottom:16px">Cashiers who have submitted their close-of-day reconciliation report for today.</p>
+      <div id="eod-reports-table"><div class="empty-state">⏳<p>Loading...</p></div></div>
     </div>
   </div>
 
@@ -621,12 +626,12 @@ const sb = createClient(
 )
 
 // AUTH GUARD + session expiry
-const _raw = localStorage.getItem('pf_user_admin') || localStorage.getItem('pf_user')
+const _raw = localStorage.getItem('pf_user_admin')
 let user = null
 try { user = JSON.parse(_raw) } catch(e) {}
 if (!user || user.role !== 'admin') window.location.href = 'index.html'
-if (user._expires && Date.now() > user._expires) { localStorage.removeItem('pf_user_admin'); localStorage.removeItem('pf_user'); window.location.href = 'index.html' }
-function touchSession() { if(user){ user._expires = Date.now() + 8*60*60*1000; localStorage.setItem('pf_user_admin', JSON.stringify(user)); localStorage.setItem('pf_user', JSON.stringify(user)) } }
+if (user._expires && Date.now() > user._expires) { localStorage.removeItem('pf_user_admin'); window.location.href = 'index.html' }
+function touchSession() { if(user){ user._expires = Date.now() + 8*60*60*1000; localStorage.setItem('pf_user_admin', JSON.stringify(user)) } }
 document.addEventListener('click', (e) => { if (!e.target.closest('.logout-btn')) touchSession() })
 document.getElementById('admin-name').textContent = user?.full_name || 'Admin'
 document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-NG', {weekday:'long', year:'numeric', month:'long', day:'numeric'})
@@ -664,7 +669,7 @@ const _showPageImpl = (name) => {
 }
 window._registerShowPage(_showPageImpl)
 
-window.logout = () => { localStorage.removeItem('pf_user_admin'); localStorage.removeItem('pf_user'); window.location.href = 'index.html' }
+window.logout = () => { localStorage.removeItem('pf_user_admin'); localStorage.removeItem('pf_last_role'); window.location.href = 'index.html' }
 
 // LOAD OVERVIEW
 async function loadOverview() {
@@ -692,7 +697,12 @@ async function loadOverview() {
   allOrders.forEach(o => {
     if (o.payment_status === 'paid') collected += o.total_amount
     else if (o.payment_status === 'partial') { collected += o.amount_paid; debt += (o.total_amount - o.amount_paid) }
-    else debt += o.total_amount
+    else if (o.payment_status === 'pending_confirmation') {
+      // Transfer submitted but not yet confirmed — count paid portion as collected, outstanding as pending
+      collected += o.amount_paid
+      debt += (o.total_amount - o.amount_paid)
+    }
+    else debt += o.total_amount  // unpaid / credit
     dispatched += o.bags_ordered
     totalBurstSachets += o.burst_sachets || 0
     totalNotReplaced += o.burst_not_replaced || 0
@@ -1168,6 +1178,14 @@ window.createOrder = async () => {
   btn.disabled = false
 
   if (error) { showAlert('order-alert', 'error', 'Failed: ' + error.message); return }
+
+  // Update vendor debt if there is an outstanding balance
+  const outstanding = total - paid
+  if (!isWalkin && vendorId && outstanding > 0) {
+    const { data: vend } = await sb.from('users').select('total_debt').eq('id', vendorId).single()
+    if (vend) await sb.from('users').update({ total_debt: (vend.total_debt||0) + outstanding }).eq('id', vendorId)
+  }
+
   showAlert('order-alert', 'success', `✅ Order created! ${bags} bags for ₦${total.toLocaleString()}`)
   document.getElementById('order-bags').value = ''
   document.getElementById('order-paid').value = '0'
@@ -1177,7 +1195,7 @@ window.createOrder = async () => {
 async function loadCashierFloats() {
   const today = new Date().toISOString().split('T')[0]
 
-  // Load pending requests
+  // Load ALL float records for today (pending, approved, rejected, closed)
   const { data: requests } = await sb
     .from('cashier_float')
     .select('*, users(full_name, phone)')
@@ -1214,14 +1232,15 @@ async function loadCashierFloats() {
     reqEl.innerHTML = html
   }
 
-  // Render active floats summary
+  // Render active floats summary (live, not-yet-closed)
   const approved = (requests || []).filter(r => r.status === 'approved')
+  const closed = (requests || []).filter(r => r.status === 'closed')
   const sumEl = document.getElementById('cashier-summary-table')
   if (!approved.length) {
     sumEl.innerHTML = '<div class="empty-state">📭<p>No approved floats yet today</p></div>'
   } else {
     let totalCash = 0
-    let html = '<table><thead><tr><th>Cashier</th><th>Allocated</th><th>Sold</th><th>Remaining</th><th>Cash Collected</th></tr></thead><tbody>'
+    let html = '<table><thead><tr><th>Cashier</th><th>Allocated</th><th>Sold</th><th>Remaining</th><th>Cash Collected</th><th>Status</th></tr></thead><tbody>'
     approved.forEach(r => {
       const remaining = r.bags_allocated - r.bags_sold
       totalCash += r.cash_collected
@@ -1231,15 +1250,46 @@ async function loadCashierFloats() {
         <td style="color:var(--success)">${r.bags_sold}</td>
         <td style="color:${remaining > 0 ? 'var(--cyan)' : 'var(--muted)'}">${remaining}</td>
         <td style="font-family:Syne,sans-serif;font-weight:700;color:var(--success)">₦${(r.cash_collected||0).toLocaleString()}</td>
+        <td><span class="badge badge-approved">Active</span></td>
       </tr>`
     })
     html += `</tbody>
       <tfoot><tr>
-        <td colspan="4" style="font-weight:700;padding:14px 12px;border-top:1px solid var(--border)">TOTAL CASH FROM CASHIERS</td>
+        <td colspan="5" style="font-weight:700;padding:14px 12px;border-top:1px solid var(--border)">TOTAL CASH FROM ACTIVE CASHIERS</td>
         <td style="font-family:Syne,sans-serif;font-size:18px;font-weight:800;color:var(--success);padding:14px 12px;border-top:1px solid var(--border)">₦${totalCash.toLocaleString()}</td>
       </tr></tfoot>
     </table>`
     sumEl.innerHTML = html
+  }
+
+  // Render EOD / Close-of-Day reports
+  const eodCard = document.getElementById('eod-reports-card')
+  const eodEl = document.getElementById('eod-reports-table')
+  if (closed.length > 0) {
+    eodCard.style.display = 'block'
+    let html = '<table><thead><tr><th>Cashier</th><th>Allocated</th><th>Sold</th><th>Expected Cash</th><th>Actual Cash</th><th>Discrepancy</th><th>Unsold Returned</th><th>Notes</th></tr></thead><tbody>'
+    closed.forEach(r => {
+      const expectedCash = r.eod_discrepancy != null
+        ? (r.eod_actual_cash || 0) - (r.eod_discrepancy || 0)
+        : null
+      const discrepancy = r.eod_discrepancy || 0
+      const discColor = discrepancy === 0 ? 'var(--success)' : discrepancy < 0 ? 'var(--danger)' : 'var(--warning)'
+      const discLabel = discrepancy === 0 ? '✅ None' : (discrepancy > 0 ? '+' : '') + '₦' + Math.abs(discrepancy).toLocaleString()
+      html += `<tr>
+        <td style="font-weight:600">${r.users?.full_name || 'Unknown'}</td>
+        <td>${r.bags_allocated}</td>
+        <td style="color:var(--success)">${r.bags_sold}</td>
+        <td style="font-weight:600">₦${expectedCash != null ? expectedCash.toLocaleString() : '—'}</td>
+        <td style="font-family:Syne,sans-serif;font-weight:700;color:var(--blue)">₦${(r.eod_actual_cash||0).toLocaleString()}</td>
+        <td style="font-family:Syne,sans-serif;font-weight:800;color:${discColor}">${discLabel}</td>
+        <td style="color:var(--muted)">${r.eod_unsold_bags || 0} bags</td>
+        <td style="color:${r.eod_notes ? 'var(--text)' : 'var(--muted)'}; font-style:${r.eod_notes ? 'normal' : 'italic'}">${r.eod_notes || 'No notes'}</td>
+      </tr>`
+    })
+    html += '</tbody></table>'
+    eodEl.innerHTML = html
+  } else {
+    eodCard.style.display = 'none'
   }
 }
 
@@ -1401,6 +1451,7 @@ async function loadTransfers() {
         <td style="display:flex;gap:6px">
           <button class="btn btn-sm btn-success" onclick="confirmTransfer('${o.id}',${o.total_amount})">✅ Confirm Full</button>
           <button class="btn btn-sm btn-outline" onclick="confirmPartialTransfer('${o.id}')">⚠️ Partial</button>
+          <button class="btn btn-sm btn-danger" onclick="rejectTransfer('${o.id}')">❌ Reject</button>
         </td>
       </tr>`
     })
@@ -1420,12 +1471,14 @@ async function loadTransfers() {
   if (!confirmed?.length) {
     confirmedEl.innerHTML = '<div class="empty-state">📭<p>No confirmed transfers yet</p></div>'
   } else {
-    let html = `<table><thead><tr><th>Vendor</th><th>Date</th><th>Amount</th><th>Status</th></tr></thead><tbody>`
+    let html = `<table><thead><tr><th>Vendor</th><th>Date</th><th>Bags</th><th>Total</th><th>Paid</th><th>Status</th></tr></thead><tbody>`
     confirmed.forEach(o => {
       html += `<tr>
         <td>${o.is_walkin?'Walk-in':(o.users?.full_name||'—')}</td>
         <td style="font-size:13px;color:var(--muted)">${new Date(o.created_at).toLocaleDateString('en-NG')}</td>
+        <td>${o.bags_ordered}</td>
         <td>₦${o.total_amount.toLocaleString()}</td>
+        <td style="color:var(--success);font-weight:600">₦${(o.amount_paid||0).toLocaleString()}</td>
         <td><span class="badge badge-${o.payment_status}">${o.payment_status}</span></td>
       </tr>`
     })
@@ -1435,30 +1488,48 @@ async function loadTransfers() {
 }
 
 window.confirmTransfer = async (id, total) => {
-  const order = allOrders.find(o => o.id === id)
-  const outstanding = total - (order?.amount_paid || 0)
-  await sb.from('orders').update({ payment_status: 'paid', amount_paid: total }).eq('id', id)
-  if (outstanding > 0 && order?.vendor_id) {
-    const { data: vend } = await sb.from('users').select('total_debt').eq('id', order.vendor_id).single()
-    if (vend) await sb.from('users').update({ total_debt: Math.max(0, (vend.total_debt||0) - outstanding) }).eq('id', order.vendor_id)
-  }
+  // Always fetch fresh from DB — don't rely on allOrders cache which may be empty
+  const { data: order } = await sb.from('orders').select('*').eq('id', id).single()
+  if (!order) { showAlert('transfer-alert', 'error', '❌ Order not found'); return }
+  // Transfer orders do NOT pre-add debt on placement (fixed in vendor.html).
+  // On confirm: debt was never added, so we just mark as paid — no debt change needed.
+  // But for legacy orders that DID pre-add debt, we still need to deduct outstanding.
+  // Safe approach: always ensure vendor debt is net-zero for this order.
+  await sb.from('orders').update({ payment_status: 'paid', amount_paid: order.total_amount }).eq('id', id)
+  // No debt change needed for transfer — debt was never added at placement.
   showAlert('transfer-alert', 'success', '✅ Transfer confirmed — order marked as paid')
+  loadTransfers()
+}
+
+window.rejectTransfer = async (id) => {
+  if (!confirm('Reject this transfer? The order will revert to unpaid status.')) return
+  const { data: order } = await sb.from('orders').select('*').eq('id', id).single()
+  if (!order) { showAlert('transfer-alert', 'error', '❌ Order not found'); return }
+  // Revert payment_status. Since vendor.html no longer pre-adds debt for transfers,
+  // we do NOT touch vendor debt here — it was never incremented.
+  const revertStatus = (order.amount_paid > 0) ? 'partial' : 'unpaid'
+  await sb.from('orders').update({ payment_status: revertStatus, amount_paid: 0 }).eq('id', id)
+  showAlert('transfer-alert', 'error', '❌ Transfer rejected — order reverted to ' + revertStatus + '.')
   loadTransfers()
 }
 
 window.confirmPartialTransfer = async (id) => {
   const amt = parseFloat(prompt('Enter amount actually received (₦):'))
-  if (!amt || isNaN(amt)) return
-  const order = allOrders.find(o => o.id === id)
-  const newPaid = (order?.amount_paid || 0) + amt
-  const total = order?.total_amount || 0
+  if (!amt || isNaN(amt) || amt <= 0) return
+  // Always fetch fresh
+  const { data: order } = await sb.from('orders').select('*').eq('id', id).single()
+  if (!order) { showAlert('transfer-alert', 'error', '❌ Order not found'); return }
+  const newPaid = amt  // partial transfer confirmed; start from scratch (vendor had no prior amount_paid for transfers)
+  const total = order.total_amount || 0
+  const remaining = total - newPaid
   const status = newPaid >= total ? 'paid' : 'partial'
-  await sb.from('orders').update({ payment_status: status, amount_paid: newPaid }).eq('id', id)
-  if (order?.vendor_id) {
+  await sb.from('orders').update({ payment_status: status, amount_paid: Math.min(newPaid, total) }).eq('id', id)
+  // Since transfer debt was never pre-added, add the REMAINING outstanding to vendor debt
+  if (remaining > 0 && order.vendor_id) {
     const { data: vend } = await sb.from('users').select('total_debt').eq('id', order.vendor_id).single()
-    if (vend) await sb.from('users').update({ total_debt: Math.max(0, (vend.total_debt||0) - amt) }).eq('id', order.vendor_id)
+    if (vend) await sb.from('users').update({ total_debt: (vend.total_debt||0) + remaining }).eq('id', order.vendor_id)
   }
-  showAlert('transfer-alert', 'success', `✅ ₦${amt.toLocaleString()} confirmed. Status: ${status}`)
+  showAlert('transfer-alert', 'success', `✅ ₦${amt.toLocaleString()} confirmed. Status: ${status}${remaining > 0 ? ` | ₦${remaining.toLocaleString()} outstanding added to vendor debt` : ''}`)
   loadTransfers()
 }
 

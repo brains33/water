@@ -288,12 +288,12 @@ const sb = createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imppd2JpZmdkenhidGx1ZHVzY3RmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2ODUyNDMsImV4cCI6MjA5NjI2MTI0M30.iIlsTnHgZLGq2-EvbJAcTl6WcjmqM3gi5cjnNykjOYs'
 )
 
-const _vRaw = localStorage.getItem('pf_user_vendor') || localStorage.getItem('pf_user')
+const _vRaw = localStorage.getItem('pf_user_vendor')
 let user = null
 try { user = JSON.parse(_vRaw) } catch(e) {}
 if (!user || user.role !== 'vendor') window.location.href = 'index.html'
-if (user._expires && Date.now() > user._expires) { localStorage.removeItem('pf_user_vendor'); localStorage.removeItem('pf_user'); window.location.href = 'index.html' }
-function touchSession() { if(user){ user._expires = Date.now() + 8*60*60*1000; localStorage.setItem('pf_user_vendor', JSON.stringify(user)); localStorage.setItem('pf_user', JSON.stringify(user)) } }
+if (user._expires && Date.now() > user._expires) { localStorage.removeItem('pf_user_vendor'); window.location.href = 'index.html' }
+function touchSession() { if(user){ user._expires = Date.now() + 8*60*60*1000; localStorage.setItem('pf_user_vendor', JSON.stringify(user)) } }
 document.addEventListener('click', (e) => { if (!e.target.closest('.logout-btn')) touchSession() })
 
 document.getElementById('vendor-greeting').textContent = 'Hello, ' + user.full_name.split(' ')[0]
@@ -321,7 +321,7 @@ const _showPageImpl = (name, el) => {
 }
 window._registerShowPage(_showPageImpl)
 
-window.logout = () => { localStorage.removeItem('pf_user_vendor'); localStorage.removeItem('pf_user'); window.location.href = 'index.html' }
+window.logout = () => { localStorage.removeItem('pf_user_vendor'); localStorage.removeItem('pf_last_role'); window.location.href = 'index.html' }
 
 async function loadHome() {
   // Refresh vendor data
@@ -424,19 +424,21 @@ window.payOutstanding = async (orderId, outstanding, total) => {
 
   if (!method) return
 
-  const newPaid = total // full payment
+  const newPaid = total // full payment claimed
   const payStatus = method === 'transfer' ? 'pending_confirmation' : 'paid'
 
   const { data: vend } = await sb.from('users').select('total_debt').eq('id', user.id).single()
   await sb.from('orders').update({ amount_paid: newPaid, payment_status: payStatus, payment_method: method }).eq('id', orderId)
 
-  // Reduce vendor debt for both cash (immediate) and transfer (pending)
-  // For transfer: debt reduces now; if admin rejects, they can adjust manually
-  const newDebt = Math.max(0, (vend?.total_debt || 0) - outstanding)
-  await sb.from('users').update({ total_debt: newDebt }).eq('id', user.id)
+  // Only reduce debt immediately for cash. For transfer, wait for admin confirmation.
+  // (Admin's rejectTransfer will restore debt if rejected; confirmTransfer will clear it when confirmed.)
+  if (method === 'cash') {
+    const newDebt = Math.max(0, (vend?.total_debt || 0) - outstanding)
+    await sb.from('users').update({ total_debt: newDebt }).eq('id', user.id)
+  }
 
   const msg = method === 'transfer'
-    ? '🏦 Transfer recorded! Admin will confirm receipt.'
+    ? '🏦 Transfer recorded! Admin will confirm receipt. Your debt will clear once confirmed.'
     : '✅ Payment recorded! Balance cleared.'
   showAlert('order-alert', 'success', msg)
   loadHome()
@@ -445,8 +447,9 @@ window.payOutstanding = async (orderId, outstanding, total) => {
 
 window.handleMethodChange = () => {
   const method = document.getElementById('o-method').value
-  document.getElementById('paid-section').style.display = method === 'credit' ? 'none' : 'block'
-  if (method === 'credit') document.getElementById('o-paid').value = '0'
+  // Hide "amount paying now" for both credit and transfer — credit is 0, transfer is unconfirmed
+  document.getElementById('paid-section').style.display = (method === 'credit' || method === 'transfer') ? 'none' : 'block'
+  if (method === 'credit' || method === 'transfer') document.getElementById('o-paid').value = '0'
   calcTotal()
 }
 
@@ -505,8 +508,8 @@ window.placeOrder = async () => {
     order_status: 'pending'
   })
 
-  // Update vendor debt
-  if (!error && outstanding > 0) {
+  // Update vendor debt — only for credit/partial cash. NOT for transfer (pending admin confirmation).
+  if (!error && outstanding > 0 && method !== 'transfer') {
     await sb.from('users').update({ total_debt: (vend.total_debt||0) + outstanding }).eq('id', user.id)
   }
 

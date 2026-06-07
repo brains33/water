@@ -327,12 +327,12 @@ const sb = createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imppd2JpZmdkenhidGx1ZHVzY3RmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2ODUyNDMsImV4cCI6MjA5NjI2MTI0M30.iIlsTnHgZLGq2-EvbJAcTl6WcjmqM3gi5cjnNykjOYs'
 )
 
-const _cRaw = localStorage.getItem('pf_user_cashier') || localStorage.getItem('pf_user')
+const _cRaw = localStorage.getItem('pf_user_cashier')
 let user = null
 try { user = JSON.parse(_cRaw) } catch(e) {}
 if (!user || user.role !== 'cashier') window.location.href = 'index.html'
-if (user._expires && Date.now() > user._expires) { localStorage.removeItem('pf_user_cashier'); localStorage.removeItem('pf_user'); window.location.href = 'index.html' }
-function touchSession() { if(user){ user._expires = Date.now() + 8*60*60*1000; localStorage.setItem('pf_user_cashier', JSON.stringify(user)); localStorage.setItem('pf_user', JSON.stringify(user)) } }
+if (user._expires && Date.now() > user._expires) { localStorage.removeItem('pf_user_cashier'); window.location.href = 'index.html' }
+function touchSession() { if(user){ user._expires = Date.now() + 8*60*60*1000; localStorage.setItem('pf_user_cashier', JSON.stringify(user)) } }
 document.addEventListener('click', (e) => { if (!e.target.closest('.logout-btn')) touchSession() })
 
 let todayFloat = null
@@ -349,7 +349,7 @@ window.showPage = (name, el) => {
   if (name==='eod') loadEod()
 }
 
-window.logout = () => { localStorage.removeItem('pf_user_cashier'); localStorage.removeItem('pf_user'); window.location.href = 'index.html' }
+window.logout = () => { localStorage.removeItem('pf_user_cashier'); localStorage.removeItem('pf_last_role'); window.location.href = 'index.html' }
 
 async function loadHome() {
   const today = new Date().toISOString().split('T')[0]
@@ -526,7 +526,14 @@ let eodFloat = null
 
 async function loadEod() {
   const today = new Date().toISOString().split('T')[0]
-  const { data: f } = await sb.from('cashier_float').select('*').eq('cashier_id', user.id).eq('date', today).eq('status', 'approved').single()
+
+  // Always re-fetch todayProd here so expected cash is never wrong
+  if (!todayProd) {
+    const { data: prod } = await sb.from('daily_production').select('*').eq('date', today).single()
+    todayProd = prod
+  }
+
+  const { data: f } = await sb.from('cashier_float').select('*').eq('cashier_id', user.id).eq('date', today).in('status', ['approved','closed']).single()
   eodFloat = f
   const infoEl = document.getElementById('eod-system-info')
 
@@ -554,27 +561,51 @@ async function loadEod() {
 }
 
 window.calcEodDiff = () => {
-  if (!eodFloat || !todayProd) return
-  const expectedCash = (eodFloat.bags_sold || 0) * (todayProd?.price_per_bag || 0)
+  if (!eodFloat) return
+  const pricePerBag = todayProd?.price_per_bag || 0
+  if (!pricePerBag) {
+    document.getElementById('eod-diff-display').style.display = 'block'
+    document.getElementById('eod-expected').textContent = '⚠️ Price not loaded'
+    return
+  }
+  const expectedCash = (eodFloat.bags_sold || 0) * pricePerBag
   const actual = parseFloat(document.getElementById('eod-actual-cash').value) || 0
   const diff = actual - expectedCash
   const diffEl = document.getElementById('eod-discrepancy')
-  diffEl.textContent = (diff >= 0 ? '+' : '') + '₦' + Math.abs(diff).toLocaleString()
+  diffEl.textContent = (diff >= 0 ? '+' : '-') + '₦' + Math.abs(diff).toLocaleString()
   diffEl.style.color = diff === 0 ? 'var(--success)' : diff < 0 ? 'var(--danger)' : 'var(--warning)'
   document.getElementById('eod-expected').textContent = '₦' + expectedCash.toLocaleString()
   document.getElementById('eod-reported').textContent = '₦' + actual.toLocaleString()
   document.getElementById('eod-diff-display').style.display = 'block'
+  // Prompt for notes if there is a discrepancy
+  const notesLabel = document.querySelector('label[for="eod-notes"]') || document.querySelector('#page-eod label:last-of-type')
+  const notesInput = document.getElementById('eod-notes')
+  if (diff !== 0 && notesInput) {
+    notesInput.placeholder = '⚠️ Discrepancy detected — please explain the difference'
+    notesInput.style.borderColor = 'var(--warning)'
+  } else if (notesInput) {
+    notesInput.placeholder = 'Optional — explain any difference'
+    notesInput.style.borderColor = ''
+  }
 }
 
 window.submitEod = async () => {
-  if (!eodFloat || !todayProd) { showAlert('eod-alert','error','No float data to close'); return }
+  if (!eodFloat) { showAlert('eod-alert','error','No float data to close'); return }
+  if (!todayProd?.price_per_bag) { showAlert('eod-alert','error','Cannot close day — price per bag not loaded. Please reload the page.'); return }
   const actual = parseFloat(document.getElementById('eod-actual-cash').value)
   const unsold = parseInt(document.getElementById('eod-unsold-bags').value) || 0
   const notes = document.getElementById('eod-notes').value.trim()
   if (isNaN(actual) || actual < 0) { showAlert('eod-alert','error','Enter actual cash amount'); return }
 
-  const expectedCash = (eodFloat.bags_sold || 0) * (todayProd?.price_per_bag || 0)
+  const expectedCash = (eodFloat.bags_sold || 0) * todayProd.price_per_bag
   const discrepancy = actual - expectedCash
+
+  // Warn if discrepancy exists and no notes provided
+  if (discrepancy !== 0 && !notes) {
+    showAlert('eod-alert','error','⚠️ There is a discrepancy of ₦' + Math.abs(discrepancy).toLocaleString() + '. Please add a note to explain the difference before submitting.')
+    document.getElementById('eod-notes').focus()
+    return
+  }
 
   const btn = document.getElementById('eod-btn')
   btn.innerHTML = '<span class="spinner"></span>Submitting...'
