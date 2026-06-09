@@ -174,11 +174,16 @@
   <link rel="apple-touch-icon" href="icons/icon-192x192.png">
   <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152x152.png">
   <link rel="apple-touch-icon" sizes="144x144" href="icons/icon-144x144.png">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 <div class="topbar">
   <div class="topbar-brand">🚚 PureFlow Driver</div>
-  <button class="logout-btn" onclick="logout()">Logout</button>
+  <div class="topbar-user">
+    <span id="gps-status" style="font-size:11px;font-weight:700;color:var(--muted);background:var(--dark2);border:1px solid var(--border);border-radius:20px;padding:4px 10px;">📍 Locating...</span>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
 </div>
 <div class="content">
   <div class="page-title" id="driver-greeting">Delivery Manifest</div>
@@ -398,13 +403,110 @@ window.markDelivered = async (orderId, totalBags, correctOtp, otpExpired) => {
   loadDeliveries()
 }
 
-loadDeliveries()
+// ─── AUTO LOCATION TRACKING (no button needed) ───────────────────────────────
+let watchId = null
+let wakeLock = null
+const gpsEl = () => document.getElementById('gps-status')
 
+async function startAutoTracking() {
+  if (!navigator.geolocation) {
+    if (gpsEl()) { gpsEl().textContent = '❌ No GPS'; gpsEl().style.color = 'var(--danger)' }
+    return
+  }
+
+  // Wake Lock — keeps phone screen/CPU alive while app is open
+  try {
+    wakeLock = await navigator.wakeLock.request('screen')
+    // Re-acquire if system releases it (battery saver, etc.)
+    document.addEventListener('visibilitychange', async () => {
+      if (wakeLock !== null && document.visibilityState === 'visible') {
+        try { wakeLock = await navigator.wakeLock.request('screen') } catch(e) {}
+      }
+    })
+  } catch (e) { /* wake lock not supported on this device — continue anyway */ }
+
+  watchId = navigator.geolocation.watchPosition(
+    async (pos) => {
+      const { latitude: lat, longitude: lng, accuracy } = pos.coords
+
+      // Push to Supabase
+      await sb.from('driver_locations').upsert({
+        driver_id: user.id,
+        lat, lng, accuracy,
+        heading: pos.coords.heading || null,
+        speed: pos.coords.speed || null,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'driver_id' })
+
+      // Cache last position for SW background sync
+      if ('caches' in window) {
+        try {
+          const cache = await caches.open('pf-location-cache')
+          await cache.put('last-location', new Response(JSON.stringify({
+            driverId: user.id, lat, lng
+          }), { headers: { 'Content-Type': 'application/json' } }))
+        } catch(e) {}
+      }
+
+      // Update topbar pill
+      if (gpsEl()) {
+        gpsEl().textContent = '📍 Live'
+        gpsEl().style.color = 'var(--success)'
+        gpsEl().style.borderColor = 'rgba(16,185,129,0.4)'
+        gpsEl().style.background = 'rgba(16,185,129,0.08)'
+      }
+    },
+    (err) => {
+      if (gpsEl()) {
+        gpsEl().textContent = err.code === 1 ? '🔒 GPS denied' : '⚠️ GPS error'
+        gpsEl().style.color = 'var(--warning)'
+      }
+      console.warn('[PureFlow] GPS error:', err.message)
+    },
+    { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 }
+  )
+}
+
+function stopTracking() {
+  if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null }
+  if (wakeLock) { try { wakeLock.release() } catch(e) {} ; wakeLock = null }
+  // Remove driver from map when they log out
+  sb.from('driver_locations').delete().eq('driver_id', user.id).then(() => {})
+}
+
+// Resume tracking when driver returns to the app tab
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && watchId === null) startAutoTracking()
+})
+
+// Clean up on logout/close
+window.addEventListener('beforeunload', stopTracking)
+
+// Override logout to also clear location
+const _origLogout = window.logout
+window.logout = () => { stopTracking(); _origLogout() }
+
+// ─── REGISTER PERIODIC BACKGROUND SYNC ──────────────────────────────────────
+async function registerPeriodicSync() {
+  try {
+    const sw = await navigator.serviceWorker.ready
+    if ('periodicSync' in sw) {
+      await sw.periodicSync.register('pf-driver-location', { minInterval: 30 * 1000 })
+    }
+  } catch(e) { /* not supported */ }
+}
+
+// ─── BOOT ────────────────────────────────────────────────────────────────────
+startAutoTracking()
+loadDeliveries()
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js')
-        .then(reg => console.log('[PureFlow] SW registered:', reg.scope))
+        .then(reg => {
+          console.log('[PureFlow] SW registered:', reg.scope)
+          registerPeriodicSync()
+        })
         .catch(err => console.warn('[PureFlow] SW registration failed:', err))
     })
   }

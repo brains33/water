@@ -176,6 +176,8 @@
   <link rel="apple-touch-icon" href="icons/icon-192x192.png">
   <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152x152.png">
   <link rel="apple-touch-icon" sizes="144x144" href="icons/icon-144x144.png">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 
@@ -197,6 +199,7 @@
     <div class="nav-item" onclick="showPage('consumption')"><span>📈</span> Bag Flow</div>
     <div class="nav-item" onclick="showPage('burst')"><span>💥</span> Burst Reports</div>
     <div class="nav-item" onclick="showPage('users')"><span>🔑</span> <span class="nav-label">User Management</span></div>
+    <div class="nav-item" onclick="showPage('map')"><span>🗺️</span> <span class="nav-label">Live Map</span></div>
   </nav>
   <div class="sidebar-footer">
     <div class="user-info">
@@ -603,6 +606,26 @@
     </div>
   </div>
 
+  <!-- LIVE MAP PAGE -->
+  <div class="page" id="page-map">
+    <div class="page-header">
+      <h1>🗺️ Live Driver Map</h1>
+      <p id="map-last-refresh">Real-time driver locations — auto-refreshes every 15s</p>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden;border-radius:14px;margin-bottom:20px;">
+      <div id="driver-map" style="height:480px;width:100%;"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        Drivers on the Road
+        <span id="live-driver-count" style="background:rgba(16,185,129,0.12);color:var(--success);border-radius:20px;padding:3px 12px;font-size:12px;font-family:'DM Sans',sans-serif;font-weight:400;">0 active</span>
+      </div>
+      <div id="driver-location-list"><div class="empty-state">⏳<p>Loading driver locations...</p></div></div>
+    </div>
+  </div>
+
 </main>
 
 <script>
@@ -666,6 +689,7 @@ const _showPageImpl = (name) => {
   if (name === 'transfers') loadTransfers()
   if (name === 'consumption') loadConsumption()
   if (name === 'users') loadUsers()
+  if (name === 'map') initDriverMap()
 }
 window._registerShowPage(_showPageImpl)
 
@@ -1807,8 +1831,155 @@ window.deleteUser = async (id, name) => {
   loadUsers()
 }
 
+// ─── LIVE DRIVER MAP ──────────────────────────────────────────────────────────
+let driverMap = null
+const driverMarkers = {}
+let mapRefreshTimer = null
+
+// Custom truck icon
+function truckIcon(isLive) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      background:${isLive ? '#10B981' : '#94A3B8'};
+      border:3px solid #fff;
+      border-radius:50%;
+      width:36px;height:36px;
+      display:flex;align-items:center;justify-content:center;
+      font-size:18px;
+      box-shadow:0 2px 8px rgba(0,0,0,0.25);
+    ">🚚</div>`,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    popupAnchor: [0, -20]
+  })
+}
+
+async function initDriverMap() {
+  // Init map once
+  if (!driverMap) {
+    driverMap = L.map('driver-map', { zoomControl: true })
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
+      maxZoom: 19
+    }).addTo(driverMap)
+    // Default view — Nigeria
+    driverMap.setView([10.52, 7.44], 13)
+  }
+
+  await refreshDriverMap()
+
+  // Clear any previous timer then set a 15s refresh
+  if (mapRefreshTimer) clearInterval(mapRefreshTimer)
+  mapRefreshTimer = setInterval(refreshDriverMap, 15000)
+
+  // Also subscribe to realtime pushes for instant updates
+  sb.channel('driver-locations-admin')
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'driver_locations'
+    }, () => refreshDriverMap())
+    .subscribe()
+}
+
+async function refreshDriverMap() {
+  const { data, error } = await sb
+    .from('driver_locations')
+    .select('driver_id, lat, lng, heading, speed, updated_at, users:driver_id(full_name, phone)')
+
+  const listEl = document.getElementById('driver-location-list')
+  const countEl = document.getElementById('live-driver-count')
+  const refreshEl = document.getElementById('map-last-refresh')
+
+  if (error || !data) {
+    listEl.innerHTML = '<div class="empty-state">❌<p>Could not load locations</p></div>'
+    return
+  }
+
+  const now = Date.now()
+  const STALE_MS = 2 * 60 * 1000 // 2 min = considered offline
+
+  // Update timestamp
+  if (refreshEl) refreshEl.textContent = 'Last refreshed: ' + new Date().toLocaleTimeString('en-NG')
+
+  if (!data.length) {
+    listEl.innerHTML = '<div class="empty-state">🚚<p>No drivers are sharing location right now</p></div>'
+    if (countEl) countEl.textContent = '0 active'
+    return
+  }
+
+  let liveCount = 0
+  const bounds = []
+  listEl.innerHTML = ''
+
+  data.forEach(d => {
+    const name = d.users?.full_name || 'Unknown Driver'
+    const phone = d.users?.phone || ''
+    const ageSec = Math.round((now - new Date(d.updated_at)) / 1000)
+    const isLive = ageSec < (STALE_MS / 1000)
+    if (isLive) liveCount++
+
+    const ageText = ageSec < 60 ? `${ageSec}s ago` : `${Math.round(ageSec/60)}m ago`
+    const speedText = d.speed != null ? `${Math.round(d.speed * 3.6)} km/h` : '—'
+
+    // Update or create marker
+    if (driverMarkers[d.driver_id]) {
+      driverMarkers[d.driver_id]
+        .setLatLng([d.lat, d.lng])
+        .setIcon(truckIcon(isLive))
+        .setPopupContent(`<b>${name}</b><br>${phone}<br>Updated ${ageText}`)
+    } else {
+      driverMarkers[d.driver_id] = L.marker([d.lat, d.lng], { icon: truckIcon(isLive) })
+        .addTo(driverMap)
+        .bindPopup(`<b>${name}</b><br>${phone}<br>Updated ${ageText}`)
+    }
+
+    bounds.push([d.lat, d.lng])
+
+    // List row
+    const row = document.createElement('div')
+    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);'
+    row.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:10px;height:10px;border-radius:50%;background:${isLive ? 'var(--success)' : '#CBD5E1'};flex-shrink:0;"></div>
+        <div>
+          <div style="font-weight:700;font-size:14px;color:var(--text)">${name}</div>
+          <div style="font-size:11px;color:var(--muted)">${phone} · ${speedText}</div>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <span class="badge ${isLive ? 'badge-delivered' : 'badge-pending'}">${isLive ? 'Live' : 'Offline'}</span>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">${ageText}</div>
+      </div>`
+    row.addEventListener('click', () => {
+      driverMap.setView([d.lat, d.lng], 16)
+      driverMarkers[d.driver_id]?.openPopup()
+    })
+    row.style.cursor = 'pointer'
+    listEl.appendChild(row)
+  })
+
+  if (countEl) countEl.textContent = `${liveCount} active`
+
+  // Fit map to show all drivers
+  if (bounds.length) {
+    driverMap.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 })
+  }
+
+  // Remove markers for drivers no longer in DB
+  Object.keys(driverMarkers).forEach(id => {
+    if (!data.find(d => d.driver_id === id)) {
+      driverMap.removeLayer(driverMarkers[id])
+      delete driverMarkers[id]
+    }
+  })
+}
+
+// Stop map timer when navigating away
+const _origShowPage = window._realShowPage
+// ─────────────────────────────────────────────────────────────────────────────
+
 // INIT — restore last active page from URL hash on refresh
-const _validPages = ['overview','orders','production','vendors','ledger','new-order','cashier','burst','transfers','consumption','users']
+const _validPages = ['overview','orders','production','vendors','ledger','new-order','cashier','burst','transfers','consumption','users','map']
 const _initPage = _validPages.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'overview'
 _showPageImpl(_initPage)
 

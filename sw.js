@@ -160,6 +160,46 @@ self.addEventListener('sync', (event) => {
   }
 });
 
+// ── PERIODIC BACKGROUND SYNC — driver location ────────────────────────────
+// Fires every ~30s on Android Chrome when app is minimized
+self.addEventListener('periodicsync', (event) => {
+  if (event.tag === 'pf-driver-location') {
+    event.waitUntil(pushCachedDriverLocation())
+  }
+})
+
+const SUPABASE_URL = 'https://jiwbifgdzxbtludusctf.supabase.co'
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imppd2JpZmdkenhidGx1ZHVzY3RmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2ODUyNDMsImV4cCI6MjA5NjI2MTI0M30.iIlsTnHgZLGq2-EvbJAcTl6WcjmqM3gi5cjnNykjOYs'
+
+async function pushCachedDriverLocation() {
+  try {
+    const cache = await caches.open('pf-location-cache')
+    const res = await cache.match('last-location')
+    if (!res) return
+
+    const { driverId, lat, lng } = await res.json()
+    if (!driverId || !lat || !lng) return
+
+    await fetch(`${SUPABASE_URL}/rest/v1/driver_locations`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        driver_id: driverId,
+        lat, lng,
+        updated_at: new Date().toISOString()
+      })
+    })
+    console.log('[PureFlow SW] Background location pushed for', driverId)
+  } catch(e) {
+    console.warn('[PureFlow SW] Background location push failed:', e.message)
+  }
+}
+
 // ── PUSH NOTIFICATIONS (future use) ───────────────────────────────────────
 self.addEventListener('push', (event) => {
   if (!event.data) return;
